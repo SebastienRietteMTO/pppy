@@ -1,0 +1,66 @@
+SUBROUTINE INIT_PY(KULOUT,PTSTEP,LDWARM,CMICRO,KSPLITR,CCSEDIM,LDCRIAUTI,&
+                   PCRIAUTI,PT0CRIAUTI,PCRIAUTC)
+
+USE MODD_RAIN_ICE_DESCR
+USE MODD_RAIN_ICE_PARAM
+USE MODD_PARAM_ICE
+USE MODD_PARAM_C1R3
+
+USE MODD_REF
+USE MODI_INI_RAIN_ICE
+
+IMPLICIT NONE
+! -----------------------------------------------------------------------
+!     DUMMY INTEGER SCALARS
+INTEGER, INTENT (IN) :: KULOUT
+REAL, INTENT (IN) :: PTSTEP
+LOGICAL, INTENT (IN) :: LDWARM
+CHARACTER(4), INTENT (IN) :: CMICRO 
+CHARACTER(4), INTENT (IN) :: CCSEDIM
+INTEGER, INTENT (OUT) :: KSPLITR
+LOGICAL, INTENT (IN) :: LDCRIAUTI
+REAL, INTENT (IN) :: PCRIAUTI
+REAL, INTENT (IN) :: PT0CRIAUTI
+REAL, INTENT (IN) :: PCRIAUTC
+!-----------------------------------------------------------------------
+!    LOCAL VARIABLES
+REAL :: ZCRI0, ZTCRI0    
+! -----------------------------------------------------------------------
+
+CALL INI_CST
+
+
+!        1. Set implicit default values for MODD_PARAM_ICE
+LWARM=LDWARM
+CPRISTINE_ICE='PLAT'
+CPRISTINE_ICE_C1R3='PLAT'
+CHEVRIMED_ICE_C1R3='GRAU'
+CSEDIM=CCSEDIM
+!
+!        2. Set implicit default values for MODD_RAIN_ICE_DESCR 
+!                     et MODD_RAIN_ICE_PARAM
+IF(.NOT. ALLOCATED(XTHVREFZ)) THEN
+  ALLOCATE(XTHVREFZ(2))
+  XTHVREFZ=300.
+ENDIF
+!
+CALL INI_RAIN_ICE (KULOUT, PTSTEP, 20.,KSPLITR,CMICRO)
+!update values from namparar
+IF (LDCRIAUTI) THEN
+
+  XCRIAUTI=PCRIAUTI
+  XCRIAUTC=PCRIAUTC
+  XT0CRIAUTI=PT0CRIAUTI
+  !second point to determine 10**(aT+b) law
+  ZTCRI0=-40.0
+  ZCRI0=1.25E-6
+  
+  XBCRIAUTI=-( LOG10(XCRIAUTI) - LOG10(ZCRI0)*PT0CRIAUTI/ZTCRI0 )&
+                   *ZTCRI0/(XT0CRIAUTI-ZTCRI0)
+  XACRIAUTI=(LOG10(ZCRI0)-XBCRIAUTI)/ZTCRI0
+  
+ENDIF
+! -----------------------------------------------------------------------
+
+END SUBROUTINE INIT_PY
+

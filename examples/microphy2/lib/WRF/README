@@ -1,0 +1,40 @@
+#Get from internet WRF v3.9.1.1: file is WRFV3.9.1.1.TAR.gz
+
+tar xf WRFV3.9.1.1.TAR.gz
+CWD=$PWD
+cd WRFV3/
+
+#On Météo-France/CNRM computers, the command below is needed to provide netcdf path to configure script
+mkdir mynetcdf_links; cd mynetcdf_links; ln -s /usr/lib64 lib; ln -s /usr/include .; cd ..
+
+#Configuration (may be different on other systems)
+NETCDF=$CWD/WRFV3/mynetcdf_links ./configure <<EOF
+32
+0
+EOF
+cat configure.wrf | sed 's/CFLAGS_LOCAL    =       -w -O3 -c/CFLAGS_LOCAL    =       -w -O3 -c -fPIC /' | \
+	            sed 's/FCBASEOPTS_NO_G =       -w $(FORMAT_FREE) $(BYTESWAPIO)/FCBASEOPTS_NO_G =       -w $(FORMAT_FREE) $(BYTESWAPIO) -fPIC/' > configure.wrf_new
+mv -f configure.wrf_new configure.wrf
+
+#Makefile
+edit phys/Makefile, update the MODULES variable to add, at the end:
+init_gfortran.o
+module_mp_python.o
+
+#Copy modified files into phys subdirectory:
+#module_mp_full_sbm.F, module_mp_kessler.F and module_mp_thompson.F: suppression of sedimentation
+#module_mp_python.F: add interfaces that can be called from python
+#init_gfortran.c: utility to deal with little/big endian with gfortran
+cp ..../examples/microphy2/lib/WRF/sources/modified_3.9.1.1/* $CWD/WRFV3/phys
+
+#Compilation
+./compile em_squall2d_x > compile.log 2>&1
+
+#Run compilation another to resolve dependency issue introduced with python 0D modifications
+./compile em_squall2d_x > compile2.log 2>&1
+
+#Shared lib link edition
+gfortran -shared -g -o WRF.so phys/module_microphysics_driver.o ./frame/nl_set_0_routines.o phys/module_mp_python.o main/libwrflib.a external/fftpack/fftpack5/libfftpack.a external/io_grib1/libio_grib1.a external/io_grib_share/libio_grib_share.a external/io_int/libwrfio_int.a external/esmf_time_f90/libesmf_time.a frame/module_internal_header_util.o frame/pack_utils.o external/io_netcdf/libwrfio_nf.a  -Lmynetcdf_links/lib/ -lnetcdff -lnetcdf
+
+#Move resulting lib
+mv WRF.so ..../examples/microphy2/lib/WRF/libWRF.so

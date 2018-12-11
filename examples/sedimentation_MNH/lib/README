@@ -1,0 +1,34 @@
+The goal is to compile a modified version of Meso-NH, then a shared lib and place
+this lib into the lib/MNH directory of this example
+
+Procedure to compile MesoNH and build the shared lib to use the IE3/ICE4 sedimentation schemes
+
+1) Get MNH source code and compile official version
+get tar from http://mesonh.aero.obs-mip.fr/mesonh54/Download
+tar xf MNH-V5-4-0.tar.gz
+cd ~/MNH-V5-4-0/src
+./configure
+. ../conf/profile_mesonh-LXgfortranI4-MNH-V5-4-0-MPIAUTO-DEBUG or other name depending on system
+make
+make installmaster
+
+2) Update code and compile special version containing routines callable by python
+in new console window
+cd ~/MNH-V5-4-0/src
+mkdir PPPY_sedim
+cp ..../examples/sedimentation_MNH/lib/sources/* PPPY_sedim
+export VER_USER=PPPY_sedim
+./configure
+. ../conf/profile_mesonh-LXgfortranI4-MNH-V5-4-0-PPPY_sedim-MPIAUTO-DEBUG name can be different but must contain PPPY
+make user
+
+3) Link edition to build the shared lib
+dir_obj_master=~/MNH-V5-4-0/src/dir_obj-LXgfortran-R8I4-MNH-V5-4-0-MPIAUTO-DEBUG/MASTER/
+dir_obj_pppy=~/MNH-V5-4-0/src/dir_obj-LXgfortran-R8I4-MNH-V5-4-0-MPIAUTO-DEBUG/PPPY_sedim
+find $dir_obj_master -follow -name '*.o'| xargs ar r libMNH54.a
+find $dir_obj_pppy -follow -name '*.o'| xargs ar r libMNH54.a
+mpif90 -shared -g -o libMNH54.so $dir_obj_pppy/spll_init_py.o $dir_obj_pppy/spll_sedim_py.o libMNH54.a -L/usr/lib64 -lnetcdff
+rm libMNH54.a
+
+4) Move the shared lib
+mv libMNH54.so ..../examples/sedimentation_MNH/lib/

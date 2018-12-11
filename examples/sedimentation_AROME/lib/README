@@ -1,0 +1,33 @@
+The goal is to compile a modified version of AROME, then a shared lib and place
+this lib into the lib/AROME directory of this example
+
+The library is build on cycle 45t1_main.01
+
+1) create pack
+gmkpack -r 45t1 -b main -v 01 -u 201705_comp_phys_param/sedim -l GFORTRAN610 -o nanbc -p masterodb
+
+2) populate pack (the tarfile contains python interface and other sedimentation algorithms not available in official pack)
+Source code is stored here: ftp://hendrix.meteo.fr/home/riette/201705_comp_phys_param/PUBLIC/sedimentaion_AROME/local.tar
+mv local.tar ~/packs/201705_comp_phys_param/sedim/src/
+cd ~/packs/201705_comp_phys_param/sedim/src/
+tar -xf local.tar
+cp main/mpa/micro/externals/aroini_micro.F90 local/mpa/micro/externals/aroini_micro.F90 #to prevent gmkpack from building a dummy subroutine???
+rm local.tar
+cd ..
+
+3) compile pack
+./ics_masterodb
+
+4) build shared lib for python calling
+pack=~/packs/201705_comp_phys_param/sedim/
+liblist=""
+for lib in `\ls $pack/lib | grep local.a`; do
+  liblist="$liblist -l"`echo $lib | cut -c 4- | xargs -i basename {} .a`
+done
+for lib in `\ls $pack/lib | grep main.a`; do
+  liblist="$liblist -l"`echo $lib | cut -c 4- | xargs -i basename {} .a`
+done
+openmpi-1.8.1_f90 /home/common/sync/tools/gmkpack_support/wrapper/gfortran.6.1.0 -fopenmp -shared -o libpppyAROME.so -ffast-math -ldl -lrt -Wl,-rpath,/home/common/sync/gfortran/auxlibs.so/lib -Wl,-rpath,/home/common/sync/gfortran/grib_api_mf_gcc-6.1.0/lib -Wl,-rpath,/home/common/sync/gcc/Magics/lib -Wl,-rpath,/home/common/sync/gfortran/netcdf_gcc-6.1/lib -Wl,-rpath,/home/common/sync/gfortran/hdf5/lib -Wl,-rpath,/home/common/sync/gcc/libgd/lib -Wl,--start-group $pack/src/local/mpa/micro/internals/rain_ice_py.o -L$pack/lib/ $liblist -Wl,--end-group -L/home/common/sync/gfortran/auxlibs.so/lib -lbufr -lgribex -L/home/common/sync/gfortran/netcdf/lib -lnetcdf -L/home/common/sync/gfortran/grib_api_mf_gcc-6.1.0/lib -lgrib_api_f90 -lgrib_api -L/home/common/sync/gcc/jasper -ljasper -L/home/common/sync/gfortran/hdf5/lib -lhdf5hl_fortran -lhdf5_fortran -lhdf5 -L/home/common/sync/gfortran/auxlibs.so/lib -lfdbdummy -lwamdummy -lnaglitedummy -loasisdummy -llapack -lblas -L/home/common/sync/gfortran/auxlibs.so/lib -libmdummy -L/home/common/sync/gcc/libgd/lib -lgd -L/usr/lib64 -lcurl -lstdc++
+
+5) move shared lib into expected directory
+mv libpppyAROME.so ..../examples/sedimentation_AROME/lib/libpppyAROME.so

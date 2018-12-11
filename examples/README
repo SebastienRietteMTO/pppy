@@ -1,0 +1,7 @@
+Several examples are present in this directory
+
+sedimentation: comparison of different algorithms of sedimentation using the AROME code
+
+microphy1: comparisons of two version of ICE3/ICE4 with LIMA using AROME and Meso-NH code
+
+microphy2: comparisons of LIMA, ICE3/ICE4 ffom MesoNH with WRF microphysics schemes

@@ -1,0 +1,6 @@
+1) Compilation
+gfortran -c -fPIC param.F90
+gfortran -c -fPIC param_py.F90
+
+2) Shared lib
+gfortran -shared -g -o param.so param_py.o param.o
