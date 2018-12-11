@@ -42,11 +42,11 @@ microphy2
 This example can be run almost everywhere as the two models involved are freely available
 (Meso-Nh and WRF).
 The lib directory provides the source code modifications that must be applied to the
-official release of these models and the compilation intructions.
+official release of these models and the compilation instructions.
 Not all the microphysical parameterizations of the WRF model are interfaced but the
 extension to another parameterization must be relatively easy.
 
 sedimentation_AROME and sedimentation_MNH
 -----------------------------------------
-This is an example of a 1D simulation using the AROME or the Meso-NH model.
-It uses the sedimentation algorithms available for ICE3/ICE4 microphysical scheme.
+This are examples of 1D simulations using the AROME or the Meso-NH model.
+They use the sedimentation algorithms available for ICE3/ICE4 microphysical scheme.

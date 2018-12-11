@@ -40,8 +40,8 @@ comp = PPPYComp(schemes=[param_1, param_2], #List of parameterization to compare
                 output_dir=output_dir, #directory in which results are stored (hdf5 files)
                 duration=180., #duration of simulation
                 init_state=dict(x=numpy.array([0.], order='F')), #initial state
-                experiment_name="First test", #name to use in plots
-                experiment_tag="firstTest") #tag to use for file names
+                name="First test", #name to use in plots
+                tag="firstTest") #tag to use for file names
 comp.run(force=True)
 plot = 'evol', dict(var_names=['x'])
 fig, plots = comp.plot_multi((1, 1), [plot])

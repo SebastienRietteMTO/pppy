@@ -21,7 +21,7 @@ class pppy_sedim_MNH54(pppy.PPPY):
     PPPY implementation for calling sedimentation schemes of Meso-NH model.
     """
 
-    def __init__(self, dt, method, name, tag, solib, hail, version):
+    def __init__(self, dt, method, name, tag, solib, hail, version, maxcfl=None):
         """
         In addition to dt, method, name and tag parameters
         defined in the PPPY class, this parameterization
@@ -33,15 +33,18 @@ class pppy_sedim_MNH54(pppy.PPPY):
                    - 'SPLI': eulerian scheme (old version with constant time-splitting)
                    - 'SPLN': eulerian scheme (new version, future operational implementation)
                    - 'SPL2': eulerian scheme (new version with momentum transport)
+        maxcfl  : maximum value of CFL for SPLN and SPL2
         """
         super().__init__(dt, method, name, tag,
-                         solib=solib, hail=hail, version=version)
-        self._solib = solib
+                         solib=solib, hail=hail, version=version,
+                         **(dict(maxcfl=maxcfl) if maxcfl is not None else {}))
 
         assert hail in [True, False], "hail must be set to True or False"
         assert version in ['STAT', 'SPLI', 'SPLN', 'SPL2'], "version is unknown"
-        self._hail = hail
-        self._version = version
+        if version in ['STAT', 'SPLI']:
+            assert maxcfl is None, "maxcfl must be None if version is STAT or SPLI"
+        else:
+            assert maxcfl is not None, "maxcfl must not be None if version is SPLN or SPL2"
 
         self._handle = None
         self._aroini_micro_py = None
@@ -65,7 +68,7 @@ class pppy_sedim_MNH54(pppy.PPPY):
         OUT = ctypesForFortran.OUT
         INOUT = ctypesForFortran.INOUT
 
-        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._solib)
+        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._options['solib'])
 
         @ctypesFF()
         def init_py(KULOUT,PTSTEP,LDWARM,CMICRO,CCSEDIM,LDCRIAUTI,
@@ -181,12 +184,16 @@ class pppy_sedim_MNH54(pppy.PPPY):
         #We call init_py with ICE3 or ICE4 microphysic scheme and
         #SPLI sedimentation scheme to force KSPLITR computation
         self._KSPLITR = self._init_py(1, self._dt, True,
-                                      'ICE4' if self._hail else 'ICE3',
+                                      'ICE4' if self._options['hail'] else 'ICE3',
                                       'SPLI', False, 0., 0., 0.,
                                       0., 'OLD', 0.,
                                       1, True, True, True, True, True, True, 0.1, True,
                                       'NONE'.ljust(80), 'NONE'.ljust(80), 'SIGM'.ljust(80),
-                                      True, 'T', 0.8, 'T', True)
+                                      True, 'T', self._options.get('maxcfl', 1.), 'T', True)
+        #In init min(dz) is set to 20m, below is a correction to take into
+        #account the true value of min(dz)
+        Z = init_state['Z_half']
+        self._KSPLITR = int(self._KSPLITR * 20. / (Z[..., 1:] - Z[..., :-1]).min())
 
     def finalize(self):
         """
@@ -207,12 +214,12 @@ class pppy_sedim_MNH54(pppy.PPPY):
         """
         state = super().build_init_state(state)
         needed = ['Z_half', 'T', 'P', 'rc', 'rr', 'ri', 'rs', 'rg']
-        if self._hail:
+        if self._options['hail']:
             needed += ['rh']
         for var in needed:
             if var not in state:
                 raise ValueError(var + " must be in state")
-        if not self._hail:
+        if not self._options['hail']:
             if 'rh' in state:
                 state['rg'] += state['rh']
                 state['rh'] = state['rh'] * 0.
@@ -279,11 +286,11 @@ class pppy_sedim_MNH54(pppy.PPPY):
 
         PDZZ = previous_state['Z_half'][..., 1:] - previous_state['Z_half'][..., :-1]
         PDZZ = PDZZ.reshape(shape)
-        result = self._sedim_py(self._version, self._hail, 1,
+        result = self._sedim_py(self._options['version'], self._options['hail'], 1,
                                 shape[0], shape[0], 1, shape[1], shape[1], 1,
                                 shape[2], 1, shape[2], shape[2], KKL,
-                                timestep, 7 if self._hail else 6,
-                                self._KSPLITR, self._version == 'SPL2',
+                                timestep, 7 if self._options['hail'] else 6,
+                                self._KSPLITR, self._options['version'] == 'SPL2',
                                 PSEA, PTOWN, PDZZ,
                                 PRHODREF, previous_state['P'].reshape(shape), PTHT, PRHODJ,
                                 previous_state['rc'].reshape(shape),

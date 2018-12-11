@@ -16,28 +16,28 @@ import os
 from pppy import ctypesForFortran
 import pppy
 
-class pppy_microPhyIce_MNH53(pppy.PPPY):
+class pppy_microPhyMNH53_ICE(pppy.PPPY):
     """
     PPPY implementation for calling ICE microphysical scheme of Meso-NH model.
     """
+
     def __init__(self, dt, method, name, tag, solib,
                  ice_version, HSUBG_AUCV_RC, adjustment=True):
         """
         In addition to dt, method, name and tag parameters
         defined in the PPPY class, this parameterization
-        needs the following parameters:
-        solib            : path to the shared library to use
-        ice_version      :
-        HSUBG_AUCV_RC    :
-        adjustment       : (optional)
+        needs or accept the following parameters:
+        solib              : path to the shared lib for the scheme
+        ice_version        : string that can take one of these values:
+                             - 'OLD3' or 'OLD4': old ICE version without and with hail
+                             - 'ICE3' or 'ICE4': new ICE version without and with hail
+        HSUBG_AUCV_RC      : kind of autoconversion for liquid cloud droplets to form rain:
+                             'PDF ', 'CLFR' or 'NONE'
+        adjustement        : (optional) If True, adjustment to water vapor is done
         """
         super().__init__(dt, method, name, tag, solib=solib,
                          ice_version=ice_version, HSUBG_AUCV_RC=HSUBG_AUCV_RC,
                          adjustment=adjustment)
-        self._solib = solib
-        self._ice_version = ice_version
-        self._HSUBG_AUCV_RC = HSUBG_AUCV_RC
-        self._adjustment = adjustment
 
         self._handle = None
         self._init_py = None
@@ -62,7 +62,7 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
         OUT = ctypesForFortran.OUT
         INOUT = ctypesForFortran.INOUT
 
-        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._solib)
+        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._options['solib'])
 
         @ctypesFF()
         def init_py(KULOUT, PTSTEP, LDWARM, CMICRO, CCSEDIM, LDCRIAUTI, PCRIAUTI,
@@ -228,10 +228,10 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
                     None)
         self._ice_adjust_py = ice_adjust_py
 
-        if self._ice_version not in ['ICE3', 'ICE4']:
+        if self._options['ice_version'] not in ['ICE3', 'ICE4']:
             raise ValueError("ice_version must be 'ICE3', 'ICE4'")
         self._KSPLITR = self._init_py(1, self._dt, True,
-                                      self._ice_version, 'SPLI', False, 0., 0., 0.)
+                                      self._options['ice_version'], 'SPLI', False, 0., 0., 0.)
 
     def finalize(self):
         """
@@ -250,12 +250,12 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
         "The method deals with the rh, ni and sigs variables"
         state = super().build_init_state(state)
         needed = ['T', 'P', 'rv', 'rc', 'rr', 'ri', 'rs', 'rg']
-        if self._ice_version in ['ICE4', 'OLD4']:
+        if self._options['ice_version'] in ['ICE4', 'OLD4']:
             needed += ['rh']
         for var in needed:
             if var not in state:
                 raise ValueError(var + " must be in state")
-        if self._ice_version in ['ICE3', 'OLD3'] and 'rh' in state:
+        if self._options['ice_version'] in ['ICE3', 'OLD3'] and 'rh' in state:
             state['rg'] += state['rh']
             state['rh'] = state['rh'] * 0.
         if not 'ni' in state:
@@ -272,7 +272,7 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
         OSEDIC = False
         HSEDIM = 'NONE'
         OWARM = True
-        hail = self._ice_version in ['ICE4', 'OLD4']
+        hail = self._options['ice_version'] in ['ICE4', 'OLD4']
 
         #Dimensions
         shape = previous_state['T'].shape
@@ -321,7 +321,7 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
         PTHT = previous_state['T'].reshape(shape) / PEXN
 
         #Adjustment
-        if self._adjustment:
+        if self._options['adjustment']:
             PTHT, PRV, PRC, PRI = self._ice_adjust_py(shape[0], shape[1], shape[2], timestep, 0.,
                                                       PRHODJ, PEXN,
                                                       previous_state['SIGS'].reshape(shape),
@@ -342,7 +342,7 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
         #Microphysics
         rain_ice_py = self._rain_ice_py_4 if hail else self._rain_ice_py_3
         result = rain_ice_py(shape[0], shape[1], shape[2],
-                             OSEDIC, HSEDIM, self._HSUBG_AUCV_RC, OWARM,
+                             OSEDIC, HSEDIM, self._options['HSUBG_AUCV_RC'], OWARM,
                              KKA, KKU, KKL, self._KSPLITR,
                              timestep, KMI, 7 if hail else 6,
                              PDZZ, PRHODJ, PRHODREF, PEXN,
@@ -353,7 +353,7 @@ class pppy_microPhyIce_MNH53(pppy.PPPY):
                              previous_state['SIGS'].reshape(shape), PSEA, PTOWN,
                              *([] if not hail else [PRH, PRHS, True]))
         next_state = {}
-        if self._ice_version in ['ICE3', 'OLD3']:
+        if self._options['ice_version'] in ['ICE3', 'OLD3']:
             (next_state['ni'], PTHS, PRVS, PRCS, PRRS, PRIS, PRSS, PRGS,
              PINPRC, PINPRR, PINPRR3D, PEVAP3D, PINPRS, PINPRG, PINDEP) = result
         else:

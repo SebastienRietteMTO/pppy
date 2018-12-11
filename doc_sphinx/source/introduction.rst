@@ -7,7 +7,7 @@ The package controls the execution of each of the parameterizations and, then, c
 What can we do with this?
 -------------------------
 At the beginning, this tool was written to compare the output of a single microphysical
-scheme when using different timesteps and a single point (0D simulation). Then, the tool
+scheme when using different time steps and a single point (0D simulation). Then, the tool
 was applied to compare different microphysical schemes, still on a single point.
 The tool was also used to compare sedimentation (vertical advection of hydrometeors) in 1D simulations.
 
@@ -19,6 +19,6 @@ It can be used on simulations with greater number of dimensions than the 0D and 
 How can I use it?
 -----------------
 The tool comes with some examples (their description can be found :ref:`here <examples>`).
-These examples contain instructions for compilation and can be use directly.
+These examples contain instructions for compilation and can be used directly.
 And you can extend the tool with other parameterizations (see the :ref:`overview <overview>`
 to begin).

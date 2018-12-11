@@ -36,12 +36,9 @@ class pppy_sedim_AROME(pppy.PPPY):
         """
         super().__init__(dt, method, name, tag,
                          solib=solib, hail=hail, version=version)
-        self._solib = solib
 
         assert hail in [True, False], "hail must be set to True or False"
         assert version in ['STAT', 'SPLI', 'SPLN', 'SPL2'], "version is unknown"
-        self._hail = hail
-        self._version = version
 
         self._handle = None
         self._aroini_micro_py = None
@@ -65,7 +62,7 @@ class pppy_sedim_AROME(pppy.PPPY):
         OUT = ctypesForFortran.OUT
         INOUT = ctypesForFortran.INOUT
 
-        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._solib)
+        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._options['solib'])
 
         @ctypesFF()
         def aroini_micro_py(KULOUT, PTSTEP, LDWARM, CMICRO, CCSEDIM, LDCRIAUTI, PCRIAUTI,
@@ -120,7 +117,7 @@ class pppy_sedim_AROME(pppy.PPPY):
         self._aroini_micro_py = aroini_micro_py
 
         @ctypesFF()
-        def ini_cst_py(*args):
+        def ini_cst_py():
             """
             This function calls the ini_cst_py fortran subroutine.
             """
@@ -192,7 +189,7 @@ class pppy_sedim_AROME(pppy.PPPY):
         #We call aroini_micro with OLD microphysic scheme and
         #SPLI sedimentation scheme to force KSPLITR computation
         self._KSPLITR = self._aroini_micro_py(1, self._dt, True,
-                                              'OLD4' if self._hail else 'OLD3',
+                                              'OLD4' if self._options['hail'] else 'OLD3',
                                               'SPLI', False, 0., 0., 0.,
                                               0., 'OLD', 0.,
                                               1, True, True, True, True, True, True, 0.1, True,
@@ -218,12 +215,12 @@ class pppy_sedim_AROME(pppy.PPPY):
         """
         state = super().build_init_state(state)
         needed = ['Z_half', 'T', 'P', 'rc', 'rr', 'ri', 'rs', 'rg']
-        if self._hail:
+        if self._options['hail']:
             needed += ['rh']
         for var in needed:
             if var not in state:
                 raise ValueError(var + " must be in state")
-        if not self._hail:
+        if not self._options['hail']:
             if 'rh' in state:
                 state['rg'] += state['rh']
                 state['rh'] = state['rh'] * 0.
@@ -290,11 +287,11 @@ class pppy_sedim_AROME(pppy.PPPY):
 
         PDZZ = previous_state['Z_half'][..., 1:] - previous_state['Z_half'][..., :-1]
         PDZZ = PDZZ.reshape(shape)
-        result = self._sedim_py(self._version, self._hail, 1,
+        result = self._sedim_py(self._options['version'], self._options['hail'], 1,
                                 shape[0], shape[0], 1, shape[1], shape[1], 1,
                                 shape[2], 1, shape[2], shape[2], KKL,
-                                timestep, 7 if self._hail else 6,
-                                self._KSPLITR, self._version == 'SPL2',
+                                timestep, 7 if self._options['hail'] else 6,
+                                self._KSPLITR, self._options['version'] == 'SPL2',
                                 PSEA, PTOWN, PDZZ,
                                 PRHODREF, previous_state['P'].reshape(shape), PTHT, PRHODJ,
                                 previous_state['rc'].reshape(shape),

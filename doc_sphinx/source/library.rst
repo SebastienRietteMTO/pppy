@@ -3,12 +3,14 @@
 PPPY's library
 ==============
 
-.. automodule:: pppy.pppy
+.. automodule:: pppy
 
 .. _PPPY:
 
 PPPY class
 ----------
+
+.. automodule:: pppy.pppy
 
 .. autoclass:: PPPY
    :show-inheritance:
@@ -20,6 +22,8 @@ PPPY class
 
 PPPYComp class
 --------------
+
+.. automodule:: pppy.pppyComp
 
 .. autoclass:: PPPYComp
    :show-inheritance:

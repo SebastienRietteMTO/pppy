@@ -16,9 +16,9 @@ import os
 import matplotlib.pyplot as plt
 
 from pppy import PPPYComp
-from pppy_ice3ice4 import pppy_ice3ice4
-from pppy_microPhyIce_MNH53 import pppy_microPhyIce_MNH53
-from pppy_microPhyLima_MNH53 import pppy_microPhyLima_MNH53
+from pppy_microphyAROME_ICE import pppy_microphyAROME_ICE
+from pppy_microPhyMNH53_ICE import pppy_microPhyMNH53_ICE
+from pppy_microPhyMNH53_LIMA import pppy_microPhyMNH53_LIMA
 
 #Configuration of comparison
 cwd = os.path.dirname(os.path.abspath(__file__))
@@ -29,89 +29,34 @@ solib_MNH = cwd + "/lib/MNH/libMNH53.so"
 #Configuration of schemes
 iv = '4' #4 to use hail in ICE and LIMA, 3 otherwise
 
-ice_1 = pppy_ice3ice4(solib=solib_AROME,
-                      dt=1., method='step-by-step',
-                      name="ICE" + iv + " scheme with dt=1.s",
-                      tag="ICE" + iv + "_dt=1.",
-                      ice_version="ICE" + iv, XTSTEP_TS=0., CSNOWRIMING='M90 ',
-                      XMRSTEP=1.E-4, NMAXITER=500, HSUBG_AUCV_RC='PDF ',
-                      HSUBG_RC_RR_ACCR='NONE'.ljust(80), HSUBG_RR_EVAP='NONE'.ljust(80),
-                      HSUBG_PR_PDF='SIGM'.ljust(80), LCRFLIMIT=True)
+dtList = [1, 10, 20, 30]
+ice = {dt:pppy_microphyAROME_ICE(solib=solib_AROME,
+                                 dt=float(dt), method='step-by-step',
+                                 name="ICE" + iv + " scheme with dt=" + str(dt) + ".s",
+                                 tag="ICE" + iv + "_dt=" + str(dt) + ".",
+                                 ice_version="ICE" + iv, XTSTEP_TS=0., CSNOWRIMING='M90 ',
+                                 XMRSTEP=1.E-4, NMAXITER=500, HSUBG_AUCV_RC='PDF ',
+                                 HSUBG_RC_RR_ACCR='NONE'.ljust(80), HSUBG_RR_EVAP='NONE'.ljust(80),
+                                 HSUBG_PR_PDF='SIGM'.ljust(80), LCRFLIMIT=True)
+       for dt in dtList}
 
-ice_10 = pppy_ice3ice4(solib=solib_AROME,
-                       dt=10., method='step-by-step',
-                       name="ICE" + iv + " scheme with dt=10.s",
-                       tag="ICE" + iv + "_dt=10.",
-                       ice_version="ICE" + iv, XTSTEP_TS=0., CSNOWRIMING='M90 ',
-                       XMRSTEP=1.E-4, NMAXITER=500, HSUBG_AUCV_RC='PDF ',
-                       HSUBG_RC_RR_ACCR='NONE'.ljust(80), HSUBG_RR_EVAP='NONE'.ljust(80),
-                       HSUBG_PR_PDF='SIGM'.ljust(80), LCRFLIMIT=True)
+old = {dt:pppy_microPhyMNH53_ICE(solib=solib_MNH,
+                                 dt=float(dt), method='step-by-step',
+                                 name="OLD" + iv + " scheme with dt=" + str(dt) + ".s",
+                                 tag="OLD" + iv + "_dt=" + str(dt) + ".",
+                                 ice_version="ICE" + iv, HSUBG_AUCV_RC='SIGM')
+       for dt in dtList}
 
-ice_20 = pppy_ice3ice4(solib=solib_AROME,
-                       dt=20., method='step-by-step',
-                       name="ICE" + iv + " scheme with dt=20.s",
-                       tag="ICE" + iv + "_dt=20.",
-                       ice_version="ICE" + iv, XTSTEP_TS=0., CSNOWRIMING='M90 ',
-                       XMRSTEP=1.E-4, NMAXITER=500, HSUBG_AUCV_RC='PDF ',
-                       HSUBG_RC_RR_ACCR='NONE'.ljust(80), HSUBG_RR_EVAP='NONE'.ljust(80),
-                       HSUBG_PR_PDF='SIGM'.ljust(80), LCRFLIMIT=True)
+lima = {dt:pppy_microPhyMNH53_LIMA(solib=solib_MNH,
+                                   dt=float(dt), method='step-by-step',
+                                   name="LIMA" + iv + " scheme with dt=" + str(dt) + ".s",
+                                   tag="LIMA" + iv+ "_dt=" + str(dt) + ".")
+        for dt in dtList}
 
-ice_30 = pppy_ice3ice4(solib=solib_AROME,
-                       dt=30., method='step-by-step',
-                       name="ICE" + iv + " scheme with dt=30.s",
-                       tag="ICE" + iv + "_dt=30.",
-                       ice_version="ICE" + iv, XTSTEP_TS=0., CSNOWRIMING='M90 ',
-                       XMRSTEP=1.E-4, NMAXITER=500, HSUBG_AUCV_RC='PDF ',
-                       HSUBG_RC_RR_ACCR='NONE'.ljust(80), HSUBG_RR_EVAP='NONE'.ljust(80),
-                       HSUBG_PR_PDF='SIGM'.ljust(80), LCRFLIMIT=True)
-
-old_1 = pppy_microPhyIce_MNH53(solib=solib_MNH,
-                               dt=1., method='step-by-step',
-                               name="OLD" + iv + " scheme with dt=1.s",
-                               tag="OLD" + iv + "_dt=1.",
-                               ice_version="ICE" + iv, HSUBG_AUCV_RC='SIGM')
-
-old_10 = pppy_microPhyIce_MNH53(solib=solib_MNH,
-                                dt=10., method='step-by-step',
-                                name="OLD" + iv + " scheme with dt=10.s",
-                                tag="OLD" + iv + "_dt=10.",
-                                ice_version="ICE" + iv, HSUBG_AUCV_RC='SIGM')
-
-old_20 = pppy_microPhyIce_MNH53(solib=solib_MNH,
-                                dt=20., method='step-by-step',
-                                name="OLD" + iv + " scheme with dt=20.s",
-                                tag="OLD" + iv + "_dt=20.",
-                                ice_version="ICE" + iv, HSUBG_AUCV_RC='SIGM')
-
-old_30 = pppy_microPhyIce_MNH53(solib=solib_MNH,
-                                dt=30., method='step-by-step',
-                                name="OLD" + iv + " scheme with dt=30.s",
-                                tag="OLD" + iv + "_dt=30.",
-                                ice_version="ICE" + iv, HSUBG_AUCV_RC='SIGM')
-
-lima_1 = pppy_microPhyLima_MNH53(solib=solib_MNH,
-                                dt=1., method='step-by-step',
-                                name="LIMA" + iv + " scheme with dt=1.s",
-                                tag="LIMA" + iv+ "_dt=1.")
-
-lima_10 = pppy_microPhyLima_MNH53(solib=solib_MNH,
-                                 dt=10., method='step-by-step',
-                                 name="LIMA" + iv + " scheme with dt=10.s",
-                                 tag="LIMA" + iv+ "_dt=10.")
-
-lima_20 = pppy_microPhyLima_MNH53(solib=solib_MNH,
-                                 dt=20., method='step-by-step',
-                                 name="LIMA" + iv + " scheme with dt=20.s",
-                                 tag="LIMA" + iv+ "_dt=20.")
-
-lima_30 = pppy_microPhyLima_MNH53(solib=solib_MNH,
-                                 dt=30., method='step-by-step',
-                                 name="LIMA" + iv + " scheme with dt=30.s",
-                                 tag="LIMA" + iv+ "_dt=30.")
 
 #Comparison and plots
 conf = {
-        'schemes' : [ice_1, ice_10, old_1, old_10, lima_1, lima_10],
+        'schemes' : [ice[1], ice[10], old[1], old[10], lima[1], lima[10]],
         'output_dir': output_dir,
         'duration': 180.,
         'init_state': dict(P=numpy.array([100000.]), T=numpy.array([270.]),
@@ -123,8 +68,8 @@ conf = {
                            ifn1ft=numpy.array([0.]), ifn1at=numpy.array([0.]),
                            nc=numpy.array([300.E6]), nr=numpy.array([3572.29]),
                            ni=numpy.array([0.1E6])),
-        'experiment_name': "First test",
-        'experiment_tag': "firstTest"
+        'name': "First test",
+        'tag': "firstTest"
        }
 comp = PPPYComp(**conf)
 comp.run(force=False)

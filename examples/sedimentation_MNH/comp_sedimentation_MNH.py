@@ -39,18 +39,18 @@ sedim_SPLN = pppy_sedim_MNH54(solib=solib,
                               dt=60., method='step-by-step',
                               name="New eulerian scheme with dt=60.s",
                               tag="SPLN_dt=60.",
-                              hail=False, version='SPLN')
+                              hail=False, version='SPLN', maxcfl=.8)
 sedim_SPL2 = pppy_sedim_MNH54(solib=solib,
                               dt=60., method='step-by-step',
                               name="Eulerian scheme with momentum transport with dt=60.s",
                               tag="SPL2_dt=60.",
-                              hail=False, version='SPL2')
+                              hail=False, version='SPL2', maxcfl=.8)
 sedim_SREF = pppy_sedim_MNH54(solib=solib,
                               dt=60., method='one-step',
                               name="Reference scheme (eulerian scheme with momentum " +
                                    "transport run in one-step mode) with dt=60.s",
                               tag="SREF_dt=60.",
-                              hail=False, version='SPL2')
+                              hail=False, version='SPL2', maxcfl=.8)
 
 dt_list = [1., 2., 3., 4., 5., 6., 8., 10., 12., 15., 20., 30., 45., 60.]
 sedim_STAT2 = [pppy_sedim_MNH54(solib=solib,
@@ -82,8 +82,8 @@ if comp == 1:
             'output_dir': output_dir,
             'duration': 3600.,
             'init_state': init_state,
-            'experiment_name': "First sedimentation test",
-            'experiment_tag': "firstSedimTest"
+            'name': "First sedimentation test",
+            'tag': "firstSedimTest"
            }
     comp = PPPYComp(**conf)
     comp.run(force=False)
@@ -108,6 +108,7 @@ if comp == 1:
     plot = 'evol', dict(var_names=['cum_rr'])
     fig, plots = comp.plot_multi((1, 1), [plot])
     figs.append(fig)
+
     plt.show()
     for fig in figs:
         plt.close(fig)
@@ -119,8 +120,8 @@ elif comp == 2:
             'output_dir': output_dir,
             'duration': 1080.,
             'init_state': init_state,
-            'experiment_name': "First sedimentation test",
-            'experiment_tag': "firstSedimTest"
+            'name': "First sedimentation test",
+            'tag': "firstSedimTest"
            }
 
     comp = PPPYComp(**conf)

@@ -21,25 +21,38 @@ option keys:
 - enableCCNsource for THOMPSONAERO
 - dx and dy for THOMPSONAERO and FULL_KHAIN_LYNN
 - enableCCNinit for FULL_KHAIN_LYNN
+- hail_opt for WSM6 and WDM6
+- ccn0 for WDM5 and WDM6
+- gid for FER_MP_HIRES_ADVECT
 
-THOMPSONAERO, FAST_KHAIN_LYNN, FULL_KHAIN_LYNN
-In WRF, all number concentrations are stored in a variable called scalar.
-This variable is 'unpacked' before calling mp_init and microphysics_driver.
-Then the different microphysics schemes does not have to worry about the scalar variable
-except THOMPSONAERO, FAST_KHAIN_LYNN and FULL_KHAIN_LYNN.
-For the initialization of THOMPSONAERO, CCN and IN number must be in scalar variable.
-For FAST_KHAIN_LYNN and FULL_KHAIN_LYNN, content of each bin is stored in the scalar variable,
-then this variable is the pronostic variable of these schemes.
+There are several variables related to ccn/ifn and it is possible that intialization and
+usage of these variables is wrong:
+- qnn_curr
+- ccn0 (ccn_conc in WRF source code)
+- naer
+- nssl_cccn
+- qnwfa2d
+- qnwfa_curr
+- qnifa_curr
+- scalar
+- enableProgNc
 
 THOMPSONAERO
+* For the initialization, CCN and IN number must be in scalar variable.
 * Variable qnwfa2d is set during initialization of THOMPSONAERO to represent a ground tendency
-of CCN. This tendency is, then, applied during integration to refill nwfa variable near ground.
-CCN concentration takes into account a source if option enableCCNsource is True and discards
-this source otherwise.
-after having called self._mp_init_py
-* If nwfa and/or nifa are null, they are filled with a profile computed from height
+  of CCN. This tendency is, then, applied during integration to refill nwfa variable near ground.
+  CCN concentration takes into account a source if option enableCCNsource is True and discards
+  this source otherwise.
+* After having called self._mp_init_py, if nwfa and/or nifa are null, they are filled with a
+  profile computed from height
+* A water conservation appears with this scheme (is it an error here? in the scheme?)
+
+THOMPSON
+* A water conservation appears with this scheme (is it an error here? in the scheme?)
 
 FULL_KHAIN_LYNN
+* The content of each bin is stored in the scalar variable, then this variable is the
+  pronostic variable of this scheme for the following iterations.
 * Scheme computes derivatives. Remember that, presently, halo is filled with the mean.
 * In normal usage, scheme initializes CCN concentration when:
   - this is the first timestep
@@ -49,13 +62,35 @@ FULL_KHAIN_LYNN
   In case we go through initialization, altitude is considered to be of some meters (depending of
   the number of points chosen). To change this behavior, code must be updated to enable the usage
   of a user's defined dz8w variable.
-* Scheme needs u, v and w to extrapolate in time tendency of T and qv. We need to provide
+* The scheme needs u, v and w to extrapolate in time tendency of T and qv. We need to provide
   not null dz8w for derivative computation.
   Normally this extrapolation gives zero in a 0D case because all points are identical.
-* scheme crashes for initial condition P=100000., T=290., rv=rc=1.E-2, rr=1.E-4,
+* The scheme crashes for initial condition P=100000., T=290., rv=rc=1.E-2, rr=1.E-4,
   ri=ric=rid=rip=rs=rg=rh=0., nc=3.E8, nr=2000., ni=ns=ng=nh=nic=nid=nip=0.,
   ccn1ft=ccn1at=1.E8, ifn1ft=ifn1at=0., u=v=w=0., xland=1.
   for dt=20s. Iterations of breakup subroutine leads to infinite values.
+* A water conservation appears with this scheme (is it an error here? in the scheme?)
+
+WSM6 and WDM6
+* The hail_opt option is used internally to define the characteristics of the rimed specie.
+  The number of species does not change with this option.
+
+WDM5 and WDM6
+* At first timestep, the value of ccn0 (scalar) is used to initialiaze the 3D array qnn_curr
+
+FER_MP_HIRES, FER_MP_HIRES_ADVECT
+* These two options are for the same scheme. The 'ADVECT' version share the same set of
+  pronostic variables with the other schemes whereas the non 'ADVECT' scheme uses the qt
+  variable and several fractions to split this qt content into internal variables.
+  It is decided to only implement the 'ADVECT' version in this script
+* The gid argument impacts the choice of the critic relative humidity threshold
+
+MORR_TWO_MOMENT
+* WRF normally allows to deal with activation with this scheme. The behaviour is
+  not enabled here because it would need more intialisation (to be able to call
+  the prescribe_aerosol_mixiactivate subroutine). Nonetheless, it is technically
+  possible to call the scheme with prognostic Nc, using the enableProgNc option.
+* hail_opt selects the set of parameters to use for the graupel category.
 """
 
 import numpy
@@ -102,35 +137,53 @@ class pppy_microPhyWRF(pppy.PPPY):
     def __init__(self, dt, method, name, tag, solib,
                  mp_physics,
                  enableCCNsource=None, dx=None, dy=None,
-                 enableCCNinit=None):
+                 enableCCNinit=None, hail_opt=None,
+                 ccn0=None, gid=None, enableProgNc=None):
         """
         In addition to dt, method, name and tag parameters
-        defined in the PPPY class, this parameterization
+        defined in the PPPY class, this parametrisation
         needs the following parameters:
         solib           : path to the shared library to use
         mp_physics      : number of the scheme to run
         enableCCNsource : True or False to enable CCN source term for THOMPSONAERO scheme
         dx, dy          : size of the grid box for THOMPSONAERO and FULL_KHAIN_LYNN schemes
         enableCCNinit   : True or False to compute initial values for CCN for FULL_KHAIN_LYNN
+        hail_opt        : for WSM6 and WDM6 schemes: 1 for hail
+        ccn0            : initial ccn value for the WDM5 and WDM6 schemes
+        gid             : grid id used by FER_MP_HIRES_ADVECT
 
         This methods also deals with the resource files.
         """
         WRF_options = dict(mp_physics=mp_physics)
-        self._mp_physics = mp_physics
         if mp_physics == self.THOMPSONAERO:
+            assert enableCCNsource is not None, "enableCCNsource must be defined for THOMPSONAERO"
             WRF_options['enableCCNsource'] = enableCCNsource
-            self._enableCCNsource = enableCCNsource
-        if mp_physics in [self.THOMPSONAERO, self.FULL_KHAIN_LYNN]:
+        if mp_physics in [self.THOMPSONAERO, self.FULL_KHAIN_LYNN, self.FER_MP_HIRES_ADVECT]:
+            #seems to be useless for FER_MP_HIRES_ADVECT but enter the scheme
+            assert dx is not None and dy is not None, "dx and dy must be defined for THOMPSONAERO, FULL_KHAIN_LYNN and FER_MP_HIRES_ADVECT"
             WRF_options['dx'] = dx
             WRF_options['dy'] = dy
-            self._dx, self._dy = dx, dy
         if mp_physics == self.FULL_KHAIN_LYNN:
+            assert enableCCNinit is not None, "enableCCNinit must be defined for FULL_KHAIN_LYNN"
             WRF_options['enableCCNinit'] = enableCCNinit
-            self._enableCCNinit = enableCCNinit
+        if mp_physics in [self.WSM6SCHEME, self.MORR_TWO_MOMENT, self.WDM6SCHEME]:
+            assert hail_opt is not None, "hail_opt must be defined for WSM6SCHEME, MORR_TWO_MOMENT and WDM6SCHEME"
+            WRF_options['hail_opt'] = hail_opt
+        if mp_physics in [self.WDM5SCHEME, self.WDM6SCHEME]:
+            assert ccn0 is not None, "ccn0 must be defined for WDM5SCHEME and WDM6SCHEME"
+            WRF_options['ccn0'] = ccn0
+        if mp_physics == self.FER_MP_HIRES:
+            raise ValueError("It is decided to not implement this version of " + \
+                             "scheme and use only the 'ADVECT' version of it.")
+        if mp_physics == self.FER_MP_HIRES_ADVECT:
+            assert gid is not None, "gid option must be defined for FER_MP_HIRES_ADVECT"
+            WRF_options['gid'] = gid
+        if mp_physics == self.MORR_TWO_MOMENT:
+            assert enableProgNc is not None, "enableProgNc must be defined for MORR_TWO_MOMENT"
+            WRF_options['enableProgNc'] = enableProgNc
 
         super().__init__(dt, method, name, tag,
                          solib=solib, **WRF_options)
-        self._solib = solib
 
         self._handle = None
         self._mp_init_py = None
@@ -148,7 +201,7 @@ class pppy_microPhyWRF(pppy.PPPY):
         super().setup(init_state, duration)
 
         #Opening of shared lib is done here to avoid loading it at initialization
-        #Because if shared lib is laod at init, all declared schemes will have
+        #Because if shared lib is load at init, all declared schemes will have
         #their shared lib loaded simultaneously which can be a source of error.
         #This way, shared lib is loaded in a sub-process (if class instance is used
         #through a PPPYComp instance).
@@ -157,10 +210,10 @@ class pppy_microPhyWRF(pppy.PPPY):
         OUT = ctypesForFortran.OUT
         INOUT = ctypesForFortran.INOUT
 
-        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._solib)
+        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._options['solib'])
 
         @ctypesFF(prefix='__module_mp_python_MOD_', suffix='')
-        def mp_init_py(mp_physics, cycling,
+        def mp_init_py(mp_physics, cycling, hail_opt,
                        RAINNC, SNOWNC, GRAUPELNC,
                        restart,
                        MPDT, DT, DX, DY, LOWLYR, F_ICE_PHY, F_RAIN_PHY, F_RIMEF_PHY,
@@ -174,7 +227,7 @@ class pppy_microPhyWRF(pppy.PPPY):
             "This function calls the mp_init_py fortran subroutine"
             shape2Dhalo = (ime-ims+1, jme-jms+1) #Shape of a 2D field with halo
             shape3Dhalo = (ime-ims+1, kme-kms+1, jme-jms+1) #Shape of a 3D field with halo
-            return ([mp_physics, cycling,
+            return ([mp_physics, cycling, hail_opt,
                      RAINNC, SNOWNC, GRAUPELNC,
                      restart,
                      MPDT, DT, DX, DY, LOWLYR, F_ICE_PHY, F_RAIN_PHY, F_RIMEF_PHY,
@@ -187,6 +240,7 @@ class pppy_microPhyWRF(pppy.PPPY):
                      jms, jme, kms, kme, its, ite, jts, jte, kts, kte],
                     [(numpy.int32, None, IN), #INTEGER, INTENT(IN) :: mp_physics
                      (numpy.bool, None, IN), #cycling :
+                     (numpy.int32, None, IN), #hail_opt
                      (numpy.float32, shape2Dhalo, INOUT), #REAL, DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: RAINNC
                      (numpy.float32, shape2Dhalo, INOUT), #REAL, DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: SNOWNC
                      (numpy.float32, shape2Dhalo, INOUT), #REAL, DIMENSION(ims:ime,jms:jme) , INTENT(INOUT) :: GRAUPELNC
@@ -371,9 +425,9 @@ class pppy_microPhyWRF(pppy.PPPY):
                                    xlat,xlong,ivgtyp,
                                    qrimef_curr,f_qrimef):
             "This function calls the microphysics_driver_py fortran subroutine"
-            shape3Dhalo = (ime-ims+1, kme-kms+1, jme-jms+1) #Shape of a 3D field with halo
-            shape2Dhalo = (ime-ims+1, jme-jms+1) #Shape of a 2D field with halo
-            shape1Dhalo = (kme-kms+1, ) #Shape of a 1D field with halo
+            shape3D = (ime-ims+1, kme-kms+1, jme-jms+1) #Shape of a 3D field
+            shape2D = (ime-ims+1, jme-jms+1) #Shape of a 2D field
+            shape1D = (kme-kms+1, ) #Shape of a 1D field
             varList = [th, rho, pi_phy, p,
                       ht, dz8w, p8w, dt,dx,dy,
                       mp_physics, spec_zone,
@@ -458,13 +512,13 @@ class pppy_microPhyWRF(pppy.PPPY):
                       xlat,xlong,ivgtyp,
                       qrimef_curr,f_qrimef]
 
-            signature = [(numpy.float32, shape3Dhalo, INOUT), #th : potential temperature   
-                         (numpy.float32, shape3Dhalo, IN), #rho : density of air 
-                         (numpy.float32, shape3Dhalo, IN), #pi_phy : exner function 
-                         (numpy.float32, shape3Dhalo, IN), #p : pressure
-                         (numpy.float32, shape2Dhalo, IN), #ht
-                         (numpy.float32, shape3Dhalo, IN), #dz8w : dz between full levels (m)
-                         (numpy.float32, shape3Dhalo, IN), #p8w : pressure at full levels (Pa)
+            signature = [(numpy.float32, shape3D, INOUT), #th : potential temperature   
+                         (numpy.float32, shape3D, IN), #rho : density of air 
+                         (numpy.float32, shape3D, IN), #pi_phy : exner function 
+                         (numpy.float32, shape3D, IN), #p : pressure
+                         (numpy.float32, shape2D, IN), #ht
+                         (numpy.float32, shape3D, IN), #dz8w : dz between full levels (m)
+                         (numpy.float32, shape3D, IN), #p8w : pressure at full levels (Pa)
                          (numpy.float32, None, IN), #dt : time step
                          (numpy.float32, None, IN), #dx : space variation
                          (numpy.float32, None, IN), #dy : space variation
@@ -473,26 +527,26 @@ class pppy_microPhyWRF(pppy.PPPY):
                          (numpy.bool, None, IN), #specified : 
                          (numpy.bool, None, IN), #channel_switch : 
                          (numpy.bool, None, IN), #warm_rain : 
-                         (numpy.float32, shape3Dhalo, INOUT), #t8w : temperature at layer interfaces
+                         (numpy.float32, shape3D, INOUT), #t8w : temperature at layer interfaces
                          (numpy.int32, None, IN), #chem_opt : 
                          (numpy.int32, None, IN), #progn : 
-                         (numpy.float32, shape3Dhalo, INOUT), # cldfra : current cloud fraction
-                         (numpy.float32, shape3Dhalo, INOUT), # cldfra_old : previous cloud fraction
-                         (numpy.float32, shape3Dhalo, INOUT), # exch_h : vertical diffusivity
-                         (numpy.float32, shape3Dhalo, OUT), #nsource : OUT
-                         (numpy.float32, shape3Dhalo, OUT), #qlsink : fractional cloud water sink OUT
-                         (numpy.float32, shape3Dhalo, OUT), #precr : rain precipitation rate at all levels OUT
-                         (numpy.float32, shape3Dhalo, OUT), #preci : ice precipitation rate at all levels OUT
-                         (numpy.float32, shape3Dhalo, OUT), #precs : snow precipitation rate at all levels OUT
-                         (numpy.float32, shape3Dhalo, OUT), #precg: graupel precipitation rate at all levels OUT
-                         (numpy.float32, shape2Dhalo, IN), #xland :
-                         (numpy.float32, shape2Dhalo, IN), #snowh : 
+                         (numpy.float32, shape3D, INOUT), # cldfra : current cloud fraction
+                         (numpy.float32, shape3D, INOUT), # cldfra_old : previous cloud fraction
+                         (numpy.float32, shape3D, INOUT), # exch_h : vertical diffusivity
+                         (numpy.float32, shape3D, OUT), #nsource : OUT
+                         (numpy.float32, shape3D, OUT), #qlsink : fractional cloud water sink OUT
+                         (numpy.float32, shape3D, OUT), #precr : rain precipitation rate at all levels OUT
+                         (numpy.float32, shape3D, OUT), #preci : ice precipitation rate at all levels OUT
+                         (numpy.float32, shape3D, OUT), #precs : snow precipitation rate at all levels OUT
+                         (numpy.float32, shape3D, OUT), #precg: graupel precipitation rate at all levels OUT
+                         (numpy.float32, shape2D, IN), #xland :
+                         (numpy.float32, shape2D, IN), #snowh : 
                          (numpy.int32, None, IN), #itimestep : if 1 use ice processes in full sbm scheme
-                         (numpy.float32, shape3Dhalo, INOUT), #f_ice_phy : fraction of ice
-                         (numpy.float32, shape3Dhalo, INOUT), #f_rain_phy : fraction of rain
-                         (numpy.float32, shape3Dhalo, INOUT), #f_rimef_phy : mass ratio of rimed ice
-                         (numpy.int32, shape2Dhalo, INOUT), #lowlyr : 
-                         (numpy.float32, shape2Dhalo, OUT), #sr : one time step mass ratio of snow to total precipitation OUT
+                         (numpy.float32, shape3D, INOUT), #f_ice_phy : fraction of ice
+                         (numpy.float32, shape3D, INOUT), #f_rain_phy : fraction of rain
+                         (numpy.float32, shape3D, INOUT), #f_rimef_phy : mass ratio of rimed ice
+                         (numpy.int32, shape2D, INOUT), #lowlyr : 
+                         (numpy.float32, shape2D, OUT), #sr : one time step mass ratio of snow to total precipitation OUT
                          (numpy.int32, None, IN), #id : grid id number
                          (numpy.int32, None, IN), #ids : start index for i in domain
                          (numpy.int32, None, IN), #ide : end index for i in domain
@@ -520,87 +574,87 @@ class pppy_microPhyWRF(pppy.PPPY):
                          (numpy.int32, None, IN), #kte : end index for k in tile
                          (numpy.int32, None, IN), #num_tiles : number of tiles
                          (numpy.float32, None, INOUT), #naer : aerosol number concentration
-                         (numpy.float32, shape3Dhalo, IN), #dlf : detraining cloud water tendency
-                         (numpy.float32, shape3Dhalo, IN), #dlf2 : dq/dt due to export of cloud water into environment by shallow convection
-                         (numpy.float32, shape3Dhalo, IN), #t_phy : temperature at the mid points
-                         (numpy.float32, shape3Dhalo, IN), #p_hyd : hydrostatic pressure
-                         (numpy.float32, shape3Dhalo, IN), #p8w_hyd : hydrostatic pressure at level interface
-                         (numpy.float32, shape3Dhalo, IN), #tke_pbl : turbulence kinetic energy
-                         (numpy.float32, shape3Dhalo, IN), #z_at_w : height above sea level at layer interfaces 
-                         (numpy.float32, shape2Dhalo,IN), #qfx : moisture flux at surface
-                         (numpy.float32, shape2Dhalo,IN), #rliq : vertically integrated reserved cloud condensate
-                         (numpy.float32, shape3Dhalo, IN), #turbtype3d : turbulence interface type 
-                         (numpy.float32, shape3Dhalo, IN), #smaw3d : Normalized Galperin instability function for momentum 
-                         (numpy.float32, shape3Dhalo, INOUT), #wsedl3d : sedimentation velocity of stratiform liquid cloud dropplets
-                         (numpy.float32, shape3Dhalo, INOUT), #cldfra_old_mp : old cloud fraction for cammgmp microphysics only
-                         (numpy.float32, shape3Dhalo, INOUT), #cldfra_mp : old cloud fraction for cammgmp microphysics only
-                         (numpy.float32, shape3Dhalo, INOUT), #cldfra_mp_all : old cloud fraction for cammgmp microphysics only
-                         (numpy.float32, shape3Dhalo, INOUT), #lradius : old cloud fraction for cammgmp microphysics only
-                         (numpy.float32, shape3Dhalo, INOUT), #iradius : old cloud fraction for cammgmp microphysics only
-                         (numpy.float32, shape3Dhalo, INOUT), #cldfrai : old cloud fraction for cammgmp microphysics only  
-                         (numpy.float32, shape3Dhalo, INOUT), #cldfral : old cloud fraction for cammgmp microphysics only
-                         (numpy.float32, shape3Dhalo, INOUT), #cldfra_conv : 
-                         (numpy.float32, shape3Dhalo, IN), #alt : inverse density
+                         (numpy.float32, shape3D, IN), #dlf : detraining cloud water tendency
+                         (numpy.float32, shape3D, IN), #dlf2 : dq/dt due to export of cloud water into environment by shallow convection
+                         (numpy.float32, shape3D, IN), #t_phy : temperature at the mid points
+                         (numpy.float32, shape3D, IN), #p_hyd : hydrostatic pressure
+                         (numpy.float32, shape3D, IN), #p8w_hyd : hydrostatic pressure at level interface
+                         (numpy.float32, shape3D, IN), #tke_pbl : turbulence kinetic energy
+                         (numpy.float32, shape3D, IN), #z_at_w : height above sea level at layer interfaces 
+                         (numpy.float32, shape2D,IN), #qfx : moisture flux at surface
+                         (numpy.float32, shape2D,IN), #rliq : vertically integrated reserved cloud condensate
+                         (numpy.float32, shape3D, IN), #turbtype3d : turbulence interface type 
+                         (numpy.float32, shape3D, IN), #smaw3d : Normalized Galperin instability function for momentum 
+                         (numpy.float32, shape3D, INOUT), #wsedl3d : sedimentation velocity of stratiform liquid cloud dropplets
+                         (numpy.float32, shape3D, INOUT), #cldfra_old_mp : old cloud fraction for cammgmp microphysics only
+                         (numpy.float32, shape3D, INOUT), #cldfra_mp : old cloud fraction for cammgmp microphysics only
+                         (numpy.float32, shape3D, INOUT), #cldfra_mp_all : old cloud fraction for cammgmp microphysics only
+                         (numpy.float32, shape3D, INOUT), #lradius : old cloud fraction for cammgmp microphysics only
+                         (numpy.float32, shape3D, INOUT), #iradius : old cloud fraction for cammgmp microphysics only
+                         (numpy.float32, shape3D, INOUT), #cldfrai : old cloud fraction for cammgmp microphysics only  
+                         (numpy.float32, shape3D, INOUT), #cldfral : old cloud fraction for cammgmp microphysics only
+                         (numpy.float32, shape3D, INOUT), #cldfra_conv : 
+                         (numpy.float32, shape3D, IN), #alt : inverse density
                          (numpy.float32, None, IN), #accum_mode : 
                          (numpy.float32, None, IN), #aitken_mode :
                          (numpy.float32, None, IN), #coarse_mode : 
-                         (numpy.float32, shape3Dhalo, IN), #icwmrsh3d : shallow cumulus in cloud water mixing ratio
-                         (numpy.float32, shape3Dhalo, IN), #icwmrdp3d : deep convection in cloud water mixing ratio
-                         (numpy.float32, shape3Dhalo, IN), #shfrc3d : shallow cloud fraction
-                         (numpy.float32, shape3Dhalo, IN), #cmfmc3d : deep + shallow convective mass flux
-                         (numpy.float32, shape3Dhalo, IN), #cmfmc2_3d : shallow convective mass flux
+                         (numpy.float32, shape3D, IN), #icwmrsh3d : shallow cumulus in cloud water mixing ratio
+                         (numpy.float32, shape3D, IN), #icwmrdp3d : deep convection in cloud water mixing ratio
+                         (numpy.float32, shape3D, IN), #shfrc3d : shallow cloud fraction
+                         (numpy.float32, shape3D, IN), #cmfmc3d : deep + shallow convective mass flux
+                         (numpy.float32, shape3D, IN), #cmfmc2_3d : shallow convective mass flux
                          (numpy.int32, None, IN), #cycling
-                         (numpy.float32, shape1Dhalo, IN), #fnm : factors for interpolation at WGRID
-                         (numpy.float32, shape1Dhalo, IN), #fnp : factors for interpolation at WGRID
-                         (numpy.float32, shape3Dhalo, INOUT), #rh_old_mp : old rh
-                         (numpy.float32, shape3Dhalo, INOUT), #lcd_old_mp :  old liquid cloud fraction
-                         #(numpy.float32, tuple(list(shape3Dhalo) + [1]), INOUT), #chem : scheme array for cammgmp scheme pronostic aerosol (dim : num_chem)
-                         #(numpy.float32, shape3Dhalo, INOUT), #qme3d : net condensation rate
-                         #(numpy.float32, shape3Dhalo, INOUT), #prain3d : rate of conversion of condensate to precipitation
-                         #(numpy.float32, shape3Dhalo, INOUT), #nevapr3d : evaporation rate of rain + snow
-                         #(numpy.float32, shape3Dhalo, INOUT), #rate1ord_cw2pr_st3d : first order rate for direct conversion strat cloud water to precip
-                         #(numpy.float32, tuple(list(shape3Dhalo) + [3]), IN), #dgnum4D (dim : ntot_amode_cam_mam)
-                         #(numpy.float32, tuple(list(shape3Dhalo) + [3]), IN), #dgnumwet4D (dim : ntot_amode_cam_mam)
-                         (numpy.float32, shape3Dhalo, INOUT), #qv_curr : vapor mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qc_curr : cloud mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qr_curr : rain mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qi_curr : ice mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qs_curr : snow mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qg_curr : graupel mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qic_curr : ice column mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qip_curr : ice plates mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qid_curr : ice dendrites mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qnic_curr : number of concentration of ice column
-                         (numpy.float32, shape3Dhalo, INOUT), #qnip_curr : number of concentration of ice plates
-                         (numpy.float32, shape3Dhalo, INOUT), #qnid_curr : number of concentration of ice dendrites
-                         (numpy.float32, shape3Dhalo, INOUT), #qndrop_curr 
-                         (numpy.float32, shape3Dhalo, INOUT), #qni_curr : number of concentration of ice 
-                         (numpy.float32, shape3Dhalo, INOUT), #qh_curr : hail mixing ratio
-                         (numpy.float32, shape3Dhalo, INOUT), #qnh_curr : number of concentration of hail
-                         (numpy.float32, shape3Dhalo, INOUT), #qzr_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qzi_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qzs_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qzg_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qzh_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qns_curr : number of concentration of snow
-                         (numpy.float32, shape3Dhalo, INOUT), #qnr_curr : number of concentration of rain
-                         (numpy.float32, shape3Dhalo, INOUT), #qng_curr : number of concentration of graupel
-                         (numpy.float32, shape3Dhalo, INOUT), #qnn_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qnc_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qnwfa_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qnifa_curr
+                         (numpy.float32, shape1D, IN), #fnm : factors for interpolation at WGRID
+                         (numpy.float32, shape1D, IN), #fnp : factors for interpolation at WGRID
+                         (numpy.float32, shape3D, INOUT), #rh_old_mp : old rh
+                         (numpy.float32, shape3D, INOUT), #lcd_old_mp :  old liquid cloud fraction
+                         #(numpy.float32, tuple(list(shape3D) + [1]), INOUT), #chem : scheme array for cammgmp scheme pronostic aerosol (dim : num_chem)
+                         #(numpy.float32, shape3D, INOUT), #qme3d : net condensation rate
+                         #(numpy.float32, shape3D, INOUT), #prain3d : rate of conversion of condensate to precipitation
+                         #(numpy.float32, shape3D, INOUT), #nevapr3d : evaporation rate of rain + snow
+                         #(numpy.float32, shape3D, INOUT), #rate1ord_cw2pr_st3d : first order rate for direct conversion strat cloud water to precip
+                         #(numpy.float32, tuple(list(shape3D) + [3]), IN), #dgnum4D (dim : ntot_amode_cam_mam)
+                         #(numpy.float32, tuple(list(shape3D) + [3]), IN), #dgnumwet4D (dim : ntot_amode_cam_mam)
+                         (numpy.float32, shape3D, INOUT), #qv_curr : vapor mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qc_curr : cloud mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qr_curr : rain mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qi_curr : ice mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qs_curr : snow mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qg_curr : graupel mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qic_curr : ice column mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qip_curr : ice plates mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qid_curr : ice dendrites mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qnic_curr : number of concentration of ice column
+                         (numpy.float32, shape3D, INOUT), #qnip_curr : number of concentration of ice plates
+                         (numpy.float32, shape3D, INOUT), #qnid_curr : number of concentration of ice dendrites
+                         (numpy.float32, shape3D, INOUT), #qndrop_curr 
+                         (numpy.float32, shape3D, INOUT), #qni_curr : number of concentration of ice 
+                         (numpy.float32, shape3D, INOUT), #qh_curr : hail mixing ratio
+                         (numpy.float32, shape3D, INOUT), #qnh_curr : number of concentration of hail
+                         (numpy.float32, shape3D, INOUT), #qzr_curr
+                         (numpy.float32, shape3D, INOUT), #qzi_curr
+                         (numpy.float32, shape3D, INOUT), #qzs_curr
+                         (numpy.float32, shape3D, INOUT), #qzg_curr
+                         (numpy.float32, shape3D, INOUT), #qzh_curr
+                         (numpy.float32, shape3D, INOUT), #qns_curr : number of concentration of snow
+                         (numpy.float32, shape3D, INOUT), #qnr_curr : number of concentration of rain
+                         (numpy.float32, shape3D, INOUT), #qng_curr : number of concentration of graupel
+                         (numpy.float32, shape3D, INOUT), #qnn_curr
+                         (numpy.float32, shape3D, INOUT), #qnc_curr
+                         (numpy.float32, shape3D, INOUT), #qnwfa_curr
+                         (numpy.float32, shape3D, INOUT), #qnifa_curr
                          (numpy.bool, None, IN), #f_qnwfa : 
                          (numpy.bool, None, IN), #f_qnifa :
-                         (numpy.float32, shape3Dhalo, INOUT), #qvolg_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #qvolh_curr
-                         (numpy.float32, shape3Dhalo, INOUT), #qir_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #qib_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #effr_curr : 
-                         (numpy.float32, shape3Dhalo, INOUT), #ice_effr_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #tot_effr_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #qic_effr_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #qip_effr_curr :
-                         (numpy.float32, shape3Dhalo, INOUT), #qid_effr_curr :
+                         (numpy.float32, shape3D, INOUT), #qvolg_curr :
+                         (numpy.float32, shape3D, INOUT), #qvolh_curr
+                         (numpy.float32, shape3D, INOUT), #qir_curr :
+                         (numpy.float32, shape3D, INOUT), #qib_curr :
+                         (numpy.float32, shape3D, INOUT), #effr_curr : 
+                         (numpy.float32, shape3D, INOUT), #ice_effr_curr :
+                         (numpy.float32, shape3D, INOUT), #tot_effr_curr :
+                         (numpy.float32, shape3D, INOUT), #qic_effr_curr :
+                         (numpy.float32, shape3D, INOUT), #qip_effr_curr :
+                         (numpy.float32, shape3D, INOUT), #qid_effr_curr :
                          (numpy.bool, None, IN), #f_qv :
                          (numpy.bool, None, IN), #f_qc :
                          (numpy.bool, None, IN), #f_qr :
@@ -638,11 +692,11 @@ class pppy_microPhyWRF(pppy.PPPY):
                          (numpy.bool, None, IN), #f_qip_effr : 
                          (numpy.bool, None, IN), #f_qid_effr :
                          (numpy.int32, None, IN), #cu_used : 
-                         (numpy.float32,shape3Dhalo, IN), #qrcuten : 
-                         (numpy.float32,shape3Dhalo, IN), #qscuten : 
-                         (numpy.float32,shape3Dhalo, IN), #qicuten :
-                         (numpy.float32,shape3Dhalo, IN), #qccuten : 
-                         (numpy.float32, shape3Dhalo, INOUT), #qt_curr :
+                         (numpy.float32,shape3D, IN), #qrcuten : 
+                         (numpy.float32,shape3D, IN), #qscuten : 
+                         (numpy.float32,shape3D, IN), #qicuten :
+                         (numpy.float32,shape3D, IN), #qccuten : 
+                         (numpy.float32, shape3D, INOUT), #qt_curr :
                          (numpy.bool, None, IN), #f_qt :
                          (numpy.float32, (43, ), INOUT), #mp_restart_state :
                          (numpy.float32, (7501, ), INOUT), #tbpvs_state :
@@ -650,62 +704,62 @@ class pppy_microPhyWRF(pppy.PPPY):
                          (numpy.int32, None, IN), #hail : ccn type
                          (numpy.int32, None, IN), #ice2 : ccn type
                          #(), #ccntype :
-                         (numpy.float32, shape3Dhalo, INOUT), #u :
-                         (numpy.float32, shape3Dhalo, INOUT), #v :
-                         (numpy.float32, shape3Dhalo, INOUT), #w :
-                         (numpy.float32, shape3Dhalo, INOUT), #z :
-                         (numpy.float32, shape2Dhalo, INOUT ), #rainnc :
-                         (numpy.float32, shape2Dhalo, INOUT ), #rainncv :
-                         (numpy.float32, shape2Dhalo, INOUT ), #snownc :
-                         (numpy.float32, shape2Dhalo, INOUT ), #snowncv :
-                         (numpy.float32, shape2Dhalo, INOUT ), #hailnc :
-                         (numpy.float32, shape2Dhalo, INOUT ), #hailncv :
-                         (numpy.float32, shape2Dhalo, INOUT ), #graupelnc :
-                         (numpy.float32, shape2Dhalo, INOUT ), #graupelncv : 
-                         #(numpy.float32, shape3Dhalo, INOUT), #rainprod :
-                         #(numpy.float32, shape3Dhalo, INOUT), #evapprod :
-                         #(numpy.float32, shape3Dhalo, INOUT), #qv_b4mp :
-                         #(numpy.float32, shape3Dhalo, INOUT), #qc_b4mp
-                         #(numpy.float32, shape3Dhalo, INOUT), #qi_b4mp :
-                         #(numpy.float32, shape3Dhalo, INOUT), #qs_b4mp :
-                         (numpy.float32, shape2Dhalo, IN), #qnwfa2d : 
-                         (numpy.float32, shape3Dhalo, OUT), #refl_10cm : OUT
-                         (numpy.float32, shape3Dhalo, OUT), #vmi3d :OUT
-                         (numpy.float32, shape3Dhalo, OUT), #di3d :OUT
-                         (numpy.float32, shape3Dhalo, OUT), #rhopo3d : OUT
-                         (numpy.float32, shape3Dhalo, INOUT), #ri_curr : OUT
+                         (numpy.float32, shape3D, INOUT), #u :
+                         (numpy.float32, shape3D, INOUT), #v :
+                         (numpy.float32, shape3D, INOUT), #w :
+                         (numpy.float32, shape3D, INOUT), #z :
+                         (numpy.float32, shape2D, INOUT ), #rainnc :
+                         (numpy.float32, shape2D, INOUT ), #rainncv :
+                         (numpy.float32, shape2D, INOUT ), #snownc :
+                         (numpy.float32, shape2D, INOUT ), #snowncv :
+                         (numpy.float32, shape2D, INOUT ), #hailnc :
+                         (numpy.float32, shape2D, INOUT ), #hailncv :
+                         (numpy.float32, shape2D, INOUT ), #graupelnc :
+                         (numpy.float32, shape2D, INOUT ), #graupelncv : 
+                         #(numpy.float32, shape3D, INOUT), #rainprod :
+                         #(numpy.float32, shape3D, INOUT), #evapprod :
+                         #(numpy.float32, shape3D, INOUT), #qv_b4mp :
+                         #(numpy.float32, shape3D, INOUT), #qc_b4mp
+                         #(numpy.float32, shape3D, INOUT), #qi_b4mp :
+                         #(numpy.float32, shape3D, INOUT), #qs_b4mp :
+                         (numpy.float32, shape2D, IN), #qnwfa2d : 
+                         (numpy.float32, shape3D, OUT), #refl_10cm : OUT
+                         (numpy.float32, shape3D, OUT), #vmi3d :OUT
+                         (numpy.float32, shape3D, OUT), #di3d :OUT
+                         (numpy.float32, shape3D, OUT), #rhopo3d : OUT
+                         (numpy.float32, shape3D, INOUT), #ri_curr : OUT
                          (numpy.bool, None, IN), #diagflag : logical to tell us when to produce diagnostic for history or restart
                          (numpy.int32, None, IN), #do_radar_ref 
-                         (numpy.float32, shape3Dhalo, INOUT), #re_cloud : 
-                         (numpy.float32, shape3Dhalo, INOUT), #re_ice :
-                         (numpy.float32, shape3Dhalo, INOUT), #re_snow :
+                         (numpy.float32, shape3D, INOUT), #re_cloud : 
+                         (numpy.float32, shape3D, INOUT), #re_ice :
+                         (numpy.float32, shape3D, INOUT), #re_snow :
                          (numpy.int32, None, IN), #has_reqc : 
                          (numpy.int32, None, IN), #has_reqi :
                          (numpy.int32, None, IN), #has_reqs :
                          (numpy.float32, None, IN), #ccn_conc :
-                         (numpy.float32, tuple(list(shape3Dhalo) + [num_scalar]), INOUT), #scalar : 
+                         (numpy.float32, tuple(list(shape3D) + [num_scalar]), INOUT), #scalar : 
                          (numpy.int32, None, IN), #num_scalar :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_ql :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qs :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qg :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qh :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qa :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qic :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qid :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_qip :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_ft_qic :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_ft_qid :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_ft_qip :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_ft_qs :
-                         (numpy.float32, shape3Dhalo, INOUT), #kext_ft_qg : 
-                         (numpy.float32, shape3Dhalo, INOUT), #height :
-                         (numpy.float32, shape3Dhalo, INOUT), #tempc :
-                         (numpy.float32, shape3Dhalo, INOUT), #TH_OLD :
-                         (numpy.float32, shape3Dhalo, INOUT), #QV_OLD :
-                         (numpy.float32, shape2Dhalo, IN), #xlat :
-                         (numpy.float32, shape2Dhalo, IN), #xlong : 
-                         (numpy.int32, shape2Dhalo, IN), #ivgtyp :
-                         (numpy.float32,shape3Dhalo, INOUT), #qrimef_curr
+                         (numpy.float32, shape3D, INOUT), #kext_ql :
+                         (numpy.float32, shape3D, INOUT), #kext_qs :
+                         (numpy.float32, shape3D, INOUT), #kext_qg :
+                         (numpy.float32, shape3D, INOUT), #kext_qh :
+                         (numpy.float32, shape3D, INOUT), #kext_qa :
+                         (numpy.float32, shape3D, INOUT), #kext_qic :
+                         (numpy.float32, shape3D, INOUT), #kext_qid :
+                         (numpy.float32, shape3D, INOUT), #kext_qip :
+                         (numpy.float32, shape3D, INOUT), #kext_ft_qic :
+                         (numpy.float32, shape3D, INOUT), #kext_ft_qid :
+                         (numpy.float32, shape3D, INOUT), #kext_ft_qip :
+                         (numpy.float32, shape3D, INOUT), #kext_ft_qs :
+                         (numpy.float32, shape3D, INOUT), #kext_ft_qg : 
+                         (numpy.float32, shape3D, INOUT), #height :
+                         (numpy.float32, shape3D, INOUT), #tempc :
+                         (numpy.float32, shape3D, INOUT), #TH_OLD :
+                         (numpy.float32, shape3D, INOUT), #QV_OLD :
+                         (numpy.float32, shape2D, IN), #xlat :
+                         (numpy.float32, shape2D, IN), #xlong : 
+                         (numpy.int32, shape2D, IN), #ivgtyp :
+                         (numpy.float32,shape3D, INOUT), #qrimef_curr
                          (numpy.bool, None, IN), #f_qrimef
                         ]
             return (varList, signature, None)
@@ -737,7 +791,7 @@ class pppy_microPhyWRF(pppy.PPPY):
         self._nl_set_write_thompson_tables(1, False)
         self._nl_set_force_read_thompson(1, False)
         self._new_resources_files = []
-        if self._mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
+        if self._options['mp_physics'] in [self.THOMPSON, self.THOMPSONAERO]:
             missing = False
             for filename in ['freezeH2O.dat', 'qr_acr_qg.dat', 'qr_acr_qs.dat']:
                 if not os.path.exists(filename):
@@ -782,15 +836,38 @@ class pppy_microPhyWRF(pppy.PPPY):
         initial state for all schemes
         """
         state = super().build_init_state(state)
+        mp_physics = self._options['mp_physics']
 
+        #Absolutely required arrays
         needed = ['T', 'P', 'rv', 'rc', 'rr']
-        if self._mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
-            needed.extend(['w', 'ri', 'rh', 'rs', 'rg',
-                           'nc', 'nr', 'ni', 'ns', 'ng', 'nh', 'ccn1ft'])
-        if self._mp_physics == self.THOMPSONAERO:
-            needed.extend(['ccn1ft', 'ifn1ft'])
-        if self._mp_physics in [self.FULL_KHAIN_LYNN]:
-            needed.extend(['u', 'v', 'w', 'xland'])
+        if mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
+            needed.extend(['w', 'ri', 'rs', 'rg',
+                           'nr', 'ni'])
+            if mp_physics == self.THOMPSONAERO:
+                needed.extend(['nc', 'ccn1ft', 'ifn1ft'])
+        elif mp_physics in [self.FULL_KHAIN_LYNN]:
+            needed = ['T', 'P', 'rv', 'u', 'v', 'w', 'xland']
+        elif mp_physics == self.WSM6SCHEME:
+            needed.extend(['ri', 'rs', 'rg'])
+        elif mp_physics == self.WSM5SCHEME:
+            needed.extend(['ri', 'rs'])
+        elif mp_physics == self.WDM6SCHEME:
+            needed.extend(['ccn1ft', 'nc', 'nr', 'ri', 'rs', 'rg'])
+        elif mp_physics == self.WDM5SCHEME:
+            needed.extend(['ccn1ft', 'nc', 'nr', 'ri', 'rs'])
+        elif mp_physics == self.MILBRANDT2MOM:
+            needed.extend(['w', 'ri', 'rs', 'rg', 'rh',
+                           'nc', 'nr', 'ni', 'ns', 'ng', 'nh'])
+        elif mp_physics == self.FER_MP_HIRES_ADVECT:
+            needed.append('ri')
+        elif mp_physics in [self.KESSLERSCHEME, self.WSM3SCHEME]:
+            pass
+        elif mp_physics == self.MORR_TWO_MOMENT:
+            needed.extend(['ri', 'rs', 'rg'])
+            if self._options['enableProgNc']:
+                needed.append('nc')
+        else:
+            raise NotImplementedError("Required arrays have not been defined for this scheme: " + str(mp_physics))
         for var in needed:
             if var not in state:
                 raise ValueError(var + " must be in state")
@@ -798,13 +875,54 @@ class pppy_microPhyWRF(pppy.PPPY):
             if not numpy.allclose(state['ri'], state['ric'] + state['rip'] + state['rid']):
                 raise ValueError("ri and ric+rip+rid are not consistent")
 
-        if self._mp_physics == self.KESSLERSCHEME:
+        #Building missing arrays and fusionning categories
+        if mp_physics == self.KESSLERSCHEME:
+            if 'ri' in state:
+                state['rc'] += state['ri']
+                state['ri'] -= state['ri']
+            for item in ['rs', 'rh', 'rg']:
+                if item  in state:
+                    state['rr'] += state[item]
+                    state[item] -= state[item]
+        elif mp_physics == self.MILBRANDT2MOM:
             pass
-        elif self._mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
-            if 'nwfa2d' not in state:
+        elif mp_physics == self.FER_MP_HIRES_ADVECT:
+            for item in ['rs', 'rh', 'rg']:
+                if item  in state:
+                    state['rr'] += state[item]
+                    state[item] -= state[item]
+            if 'rimef' not in state:
+                state['rimef'] = state['ri'].copy()
+        elif mp_physics in [self.WSM6SCHEME, self.WDM6SCHEME, self.MORR_TWO_MOMENT]:
+            #only one category for graupel and hail, option hail_opt
+            #selects the set of constant to use inside the scheme
+            if 'rh' in state:
+                state['rg'] += state['rh']
+                state['rh'] -= state['rh']
+        elif mp_physics in [self.WSM5SCHEME, self.WDM5SCHEME]:
+            #Only one icy precipitating category (rs) to represent rs+rg+rh
+            for item in ['rh', 'rg']:
+                if item  in state:
+                    state['rs'] += state[item]
+                    state[item] -= state[item]
+        elif mp_physics == self.WSM3SCHEME:
+            #only one cloud category to represent rc+ri
+            if 'ri' in state:
+                state['rc'] += state['ri']
+                state['ri'] -= state['ri']
+            #only one precipitating category to represent rr+rs+rg+rh
+            for item in ['rh', 'rg', 'rs']:
+                if item  in state:
+                    state['rr'] += state[item]
+                    state[item] -= state[item]
+        elif mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
+            if 'rh' in state:
+                state['rg'] += state['rh']
+                state['rh'] -= state['rh']
+            if mp_physics == self.THOMPSONAERO and 'nwfa2d' not in state:
                 #Values will be set during mp_init
                 state['nwfa2d'] = numpy.zeros(tuple(list(state['T'].shape)))
-        elif self._mp_physics == self.FULL_KHAIN_LYNN:
+        elif mp_physics == self.FULL_KHAIN_LYNN:
             #Old values
             P0 = 100000.
             Boltz = 1.380658E-23
@@ -818,9 +936,11 @@ class pppy_microPhyWRF(pppy.PPPY):
 
             #Bin values
             if not 'scalar' in state:
-                logging.warning("Initialization of scalar must be done according to the " +
-                                "distribution of LIMA (if number available) or ICE " +
-                                "(how to use nic, nid and nip if available?)")
+                for var in ['rc', 'rr', 'ri', 'rs', 'rg', 'rh', 'ccn1ft']:
+                   if var not in state:
+                       raise ValueError(var + " must be in state (when scalar is missing)")
+                logging.warning("Initialization of scalar must be done according to a " + \
+                                "given distribution")
                 scalar = numpy.zeros(tuple(list(state['T'].shape) + [265]))
                 scalar[..., 1:18] = state['rc'] / 17.
                 scalar[..., 18:34] = state['rr'] / 16.
@@ -885,42 +1005,62 @@ class pppy_microPhyWRF(pppy.PPPY):
     def _add_halo(array):
         "Adds halo to array"
         #Three first dimensions are geographical dimensions
-        #return array with array 1-point halo
+        #return array with a 1-point halo on the horizontal
+        #and a minimum of 2 values on the vertical
+        #method move the position of the k axis
         if len(array.shape) >= 3:
+            #input shape is (i, j, k [, n]), output shape is (i + 2, max(k, 2), j + 2 [, n])
             new_shape = tuple([array.shape[0] + 2,
-                               array.shape[1] + 2,
-                               array.shape[2] + 2] + list(array.shape[3:]))
+                               max(array.shape[2], 2),
+                               array.shape[1] + 2] + list(array.shape[3:]))
             result = numpy.zeros(new_shape, dtype=array.dtype)
-            result[...] = array.mean()
-            result[1:-1, 1:-1, 1:-1, ...] = array
+            result[...] = array.mean() #to have physical values in the halo
+            result[1:-1, :array.shape[2], 1:-1, ...] = numpy.swapaxes(array, 1, 2)
+            if array.shape[2] == 1:
+                result[:, 1, :] = result[:, 0, :]
         elif len(array.shape) == 2:
+            #input shape is (i, j), output shape is (i + 2, j+ 2)
             new_shape = (array.shape[0] + 2, array.shape[1] + 2)
             result = numpy.zeros(new_shape, dtype=array.dtype)
-            result[...] = array.mean()
+            result[...] = array.mean() #to have physical values in the halo
             result[1:-1, 1:-1] = array
         elif len(array.shape) == 1:
-            new_shape = (array.shape[0] + 2, )
+            #input shape is (k, ), output shape is (max(k, 2), )
+            new_shape = (max(array.shape[0], 2), )
             result = numpy.zeros(new_shape, dtype=array.dtype)
-            result[...] = array.mean()
-            result[1:-1] = array
+            result[:array.shape[0]] = array
+            if array.shape[0] == 1:
+                result[1] = result[0]
         return result
 
     @staticmethod
-    def _del_halo(array):
+    def _del_halo(array, halo_on_vert):
         "Removes halo to array"
         #Three first dimensions are geographical dimensions
         #return array without the 1-point halo
+        #and with vertical axes moved to third position
         if len(array.shape) >= 3:
-            return array[1:-1, 1:-1, 1:-1, ...]
+            result = numpy.swapaxes(array[1:-1, :, 1:-1, ...], 1, 2)
+            return result[:, :, :-1, ...] if halo_on_vert else result
         elif len(array.shape) == 2:
             return array[1:-1, 1:-1]
         elif len(array.shape) == 1:
-            return array[1:-1]
+            return array[:-1] if halo_on_vert else array
 
     def execute(self, previous_state, dt, timestep_number):
         super().execute(previous_state, dt, timestep_number)
+        mp_physics = self._options['mp_physics']
+
+        #To be compatible with other microphysical pppy already coded
+        #it is decided to hypothesised that incoming variables are
+        #64bits and axes are in the (i,j,k) order whereas variables
+        #intering the WRF driver are 32bits and axes is are in the (i,k,j) order
 
         #Dimensions
+        #shapeOri3D: shape of an input state variables which can be 3D in (i, j, k) order
+        #shapeOri2D: shape of an input state variables which can be, at most, 2D
+        #shape3D: 3D shape of input state variables in (i, j, k) order
+        #shape2D: 2D shape of input state variables
         shapeOri3D = previous_state['T'].shape
         if len(shapeOri3D) > 3:
             raise ValueError("Maximum shape length is 3")
@@ -933,34 +1073,35 @@ class pppy_microPhyWRF(pppy.PPPY):
         elif len(shapeOri3D) == 3:
             shape3D = shapeOri3D
             shapeOri2D = shapeOri3D[:2]
-
-        if shape3D[1:] != (1, 1):
-            raise NotImplementedError("It seems that we need to change dimension order. " +
-                                      "We receive vertical dimension in last index but it seems " +
-                                      "that WRF expect vertical dim to be in second position.")
         shape2D = shape3D[0:2]
-        shape3Dhalo = (shape3D[0] + 2, shape3D[2] + 2, shape3D[1] + 2)
-        shape2Dhalo = (shape3D[0] + 2, shape3D[1] + 2)
-        shape1Dhalo = (shape3D[2] + 2, )
-        #shapeOri3D: shape of an input state variables which can be 3D
-        #shapeOri2D: shape of an input state variables which can be, at most, 2D
-        #shape3D: 3D shape of input state variables, vertical dim is in third position
-        #shape2D: 2D shape of input state variables
-        #shape3DHalo: 3D shape with halo, vertical dim is in second position
-        #shape2DHalo: 2D shape with halo
-        #shape1Dhalo: 1D (vertical) shape with halo
-        zeros2D = numpy.zeros(shape2Dhalo, numpy.float32)
-        zeros3D = numpy.zeros(shape3Dhalo, numpy.float32)
 
-        #Index
+        #Mecanism around domain/memory/tile is not entirely understood
+        #To be sure, a 1-point halo is added, on the horizontal, to build
+        #the memory array around the input array and another 1-point
+        #halo is added around the memory array to get the domain array.
+        #On the vertical, 1-point is added on the top if the original
+        #array contains only one point.
+        #The size of the halo is hard coded here and in _add_halo and _del_halo
+        #Array entering the WRF subroutines are defined on the memory shape
+        #shape3DHalo: 3D shape of memory array in (i, k, j) order
+        #shape2DHalo: 2D shape of memory array
+        #shape1Dhalo: 1D (vertical) shape of memory array
         ids, jds, kds = 1, 1, 1 # start domain
-        ide, jde, kde = shape3D[0] + 4, shape3D[1] + 4, shape3D[2] + 4 # end domain
-        ims, jms, kms = 2, 2, 2 # start memory
-        ime, jme, kme = shape3D[0] + 3, shape3D[1] + 3, shape3D[2] + 3 # end memory
-        its, jts, kts = 3, 3, 3 # start tile
-        ite, jte, kte = shape3D[0] + 2, shape3D[1] + 2, shape3D[2] + 2 # end tile
-        ips, jps, kps = 1, 1, 1 # start ?
-        ipe, jpe, kpe = 1, 1, 1 # end ?
+        ide, jde, kde = shape3D[0] + 4, shape3D[1] + 4, max(shape3D[2], 2) # end domain
+        ims, jms, kms = 2, 2, 1 # start memory
+        ime, jme, kme = shape3D[0] + 3, shape3D[1] + 3, max(shape3D[2], 2) # end memory
+        its, jts, kts = 3, 3, 1 # start tile
+        ite, jte, kte = shape3D[0] + 2, shape3D[1] + 2, max(shape3D[2], 2) # end tile
+        shape3Dhalo = (ime - ims + 1, kme - kms + 1, jme - jms + 1)
+        shape2Dhalo = (ime - ims + 1, jme - jms + 1)
+        shape1Dhalo = (kme - kms + 1, )
+
+        spec_zone = 0 #is somewhat related to dimensions
+        specified = False #is somewhat related to dimensions
+        channel_switch = False #is somewhat related to dimensions
+        gid = self._options.get('gid', 0) #grid id, relevant for FER_MP_HIRES_ADVECT schemes
+        ips, jps, kps = its, jts, kts # start ?
+        ipe, jpe, kpe = ite, jte, kte # end ?
         num_tiles = 1
         i_start = numpy.ones((num_tiles, ), numpy.int32) * its
         i_end = numpy.ones((num_tiles, ), numpy.int32) * ite
@@ -976,15 +1117,19 @@ class pppy_microPhyWRF(pppy.PPPY):
         Rv = 461.6
         Cpd = 7. * Rd / 2.
 
-        #Previous state values
-        add_halo = self._add_halo
+        #Previous state values, pronostic arrays
+        add_halo = self._add_halo #adds halo and invert axes
         to32 = self._to32
+        zeros2D = numpy.zeros(shape2Dhalo, numpy.float32)
+        zeros3D = numpy.zeros(shape3Dhalo, numpy.float32)
         T = add_halo(to32(previous_state['T'].reshape(shape3D))) #Temperature (K)
         p = add_halo(to32(previous_state['P'].reshape(shape3D))) #pressupre (Pa)
+        p8w = p #p8w is normally the pressure at interfaces
         qv_curr = add_halo(to32(previous_state['rv'].reshape(shape3D))) #mixing ratio (kg/kg)
         qc_curr = add_halo(to32(previous_state['rc'].reshape(shape3D))) #mixing ratio (kg/kg)
         qr_curr = add_halo(to32(previous_state['rr'].reshape(shape3D))) #mixing ratio (kg/kg)
-        qi_curr = add_halo(to32(previous_state['ri'].reshape(shape3D))) #mixing ratio (kg/kg)
+        qi_curr = add_halo(to32(previous_state['ri'].reshape(shape3D)))  if 'ri' in previous_state else zeros3D.copy()#mixing ratio (kg/kg)
+        qrimef_curr = add_halo(to32(previous_state['rimef'].reshape(shape3D)))  if 'rimef' in previous_state else qi_curr #for FER_MP_HIRES_ADVECT
         qic_curr = add_halo(to32(previous_state['ric'].reshape(shape3D))) if 'ric' in previous_state else zeros3D.copy() #mixing ratio (kg/kg)
         qip_curr = add_halo(to32(previous_state['rip'].reshape(shape3D))) if 'rip' in previous_state else  zeros3D.copy() #mixing ratio (kg/kg)
         qid_curr = add_halo(to32(previous_state['rid'].reshape(shape3D))) if 'rid' in previous_state else zeros3D.copy() #mixing ratio (kg/kg)
@@ -992,6 +1137,7 @@ class pppy_microPhyWRF(pppy.PPPY):
         qg_curr = add_halo(to32(previous_state['rg'].reshape(shape3D))) if 'rg' in previous_state else zeros3D.copy() #mixing ratio (kg/kg)
         qh_curr = add_halo(to32(previous_state['rh'].reshape(shape3D))) if 'rh' in previous_state else zeros3D.copy() #mixing ratio (kg/kg)
         qnc_curr = add_halo(to32(previous_state['nc'].reshape(shape3D))) if 'nc' in previous_state else zeros3D.copy() #number concentration (#/kg)
+        qndrop_curr = qnc_curr
         qnr_curr = add_halo(to32(previous_state['nr'].reshape(shape3D))) if 'nr' in previous_state else zeros3D.copy() #number concentration (#/kg)
         qni_curr = add_halo(to32(previous_state['ni'].reshape(shape3D))) if 'ni' in previous_state else zeros3D.copy()
         qnip_curr = add_halo(to32(previous_state['nip'].reshape(shape3D))) if 'nip' in previous_state else zeros3D.copy() #number concentration (#/kg)
@@ -1005,20 +1151,19 @@ class pppy_microPhyWRF(pppy.PPPY):
         u = add_halo(to32(previous_state['u'].reshape(shape3D))) if 'u' in previous_state else zeros3D.copy() #u wind component
         v = add_halo(to32(previous_state['v'].reshape(shape3D))) if 'v' in previous_state else zeros3D.copy() #v wind component
         w = add_halo(to32(previous_state['w'].reshape(shape3D))) if 'w' in previous_state else zeros3D.copy() #w wind component
-        TH_OLD = add_halo(to32(previous_state['th_old'].reshape(shape3D))) if 'th_old' in previous_state else zeros3D.copy() #old potential temperature
-        QV_OLD = add_halo(to32(previous_state['qv_old'].reshape(shape3D))) if 'qv_old' in previous_state else zeros3D.copy() #old water vapor mixing ratio
+        QV_OLD = add_halo(to32(previous_state['qv_old'].reshape(shape3D))) if 'qv_old' in previous_state else qv_curr #old water vapor mixing ratio
         xland = add_halo(to32(previous_state['xland'].reshape(shape2D))) if 'xland' in previous_state else zeros2D.copy() #1 for land
         qnn_curr = ccn1ft
         qnwfa_curr = ccn1ft
         qnifa_curr = ifn1ft
         qnwfa2d = add_halo(to32(previous_state['nwfa2d'].reshape(shape2D))) if 'nwfa2d' in previous_state else zeros2D.copy()
-        if self._mp_physics == self.FULL_KHAIN_LYNN:
+        if mp_physics == self.FULL_KHAIN_LYNN:
             num_scalar = 265
             scalar = add_halo(to32(previous_state['scalar'].reshape(tuple(list(shape3D) + [num_scalar]))))
-        elif self._mp_physics == self.FAST_KHAIN_LYNN:
+        elif mp_physics == self.FAST_KHAIN_LYNN:
             num_scalar = 133
             scalar = add_halo(to32(previous_state['scalar'].reshape(tuple(list(shape3D) + [num_scalar]))))
-        elif self._mp_physics == self.THOMPSONAERO:
+        elif mp_physics == self.THOMPSONAERO:
             num_scalar = 2
             scalar = numpy.zeros(tuple(list(shape3Dhalo) + [num_scalar]), numpy.float32)
             scalar[..., 0] = qnwfa_curr
@@ -1026,27 +1171,29 @@ class pppy_microPhyWRF(pppy.PPPY):
         else:
             num_scalar = 0
             scalar = numpy.zeros(tuple(list(shape3Dhalo) + [num_scalar]), numpy.float32)
+        ccn_conc = self._options.get('ccn0', 0)
+        naer = ccn_conc #LINSCHEME, MORR_TWO_MOMENT
+        nssl_cccn = 1.225 * ccn_conc #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
 
         #Thermo
         rho = p / (T * (Rd + qv_curr * Rv))
         pi_phy = (p / P0) ** (Rd / Cpd) #exner function
         th = T / pi_phy #potential temperature
+        TH_OLD = add_halo(to32(previous_state['th_old'].reshape(shape3D))) if 'th_old' in previous_state else th #old potential temperature
 
         #Old values
         th_save = th.copy()
         qv_save = qv_curr.copy()
 
         #Space and time
-        if self._mp_physics in [self.ETAMPNEW, self.FER_MP_HIRES, self.FER_MP_HIRES_ADVECT,
-                          self.THOMPSONAERO,
-                          self.FAST_KHAIN_LYNN, self.FULL_KHAIN_LYNN]:
-            dx, dy = self._dx, self._dy
-        else:
-            dx, dy = 1., 1.
+        dx = self._options.get('dx', 1.)
+        dy = self._options.get('dy', 1.)
         itimestep = timestep_number
-        MPDT = 1. #ETAMPNEW, FER_MP_HIRES and FER_MP_HIRES_ADVECT
+        allowed_to_read = timestep_number == 1 #ETAMPNEW, FER_MP_HIRES_ADVECT (enters WSM3SCHEME, WSM5SCHEME but unused)
+        MPDT = 0. #time step in minutes of the microphysics (ETAMPNEW and FER_MP_HIRES_ADVECT)
+                  #a zero value forces to use the general time step
         z_at_q = numpy.zeros(shape3Dhalo, numpy.float32) #height of levels, used for init; is-it the same as z used for micro_driver?
-        if self._mp_physics in [self.THOMPSONAERO] and \
+        if mp_physics in [self.THOMPSONAERO] and \
            (qnwfa_curr.max() == 0. or qnifa_curr.max() == 0.):
             logging.warning("CCN/IN initialization in Thompson will consider that " +
                             "all points are at the surface (because of z_at_q values)")
@@ -1056,9 +1203,7 @@ class pppy_microPhyWRF(pppy.PPPY):
                                           "insure consistency with dz8w")
         z = zeros3D.copy() #height above sea level, used for micro_driver; is-it the same as z_at_q used for init?
         z_at_w = zeros3D.copy() #height above sea level at layer interfaces
-        dz8w = zeros3D.copy() #layer thickness (between full?, half?), in hm?
-        for k in range(dz8w.shape[1]):
-            dz8w[:, k, :] = k - 1 #To have 0 on the first physical level
+        dz8w = zeros3D.copy() + 100. #layer thickness (between full?, half?)
         ht = zeros2D.copy() #Terrain height
 
         #Start strategy
@@ -1116,8 +1261,9 @@ class pppy_microPhyWRF(pppy.PPPY):
         #Not very usefull variables
         f_qvolg = True #To enable NNSL schemes call
         f_qvolh = True #To enable NNSL schemes call
+        lowlyr = numpy.zeros(shape2Dhalo, numpy.int32) #ETAMPNEW and FER_MP_HIRES_ADVECT (inout but overwritten in init)
 
-        #Unused variables: these variable is not used at all in microphysics_driver
+        #Unused variables: these variable are not used at all in microphysics_driver
         ivgtyp = numpy.zeros(shape2Dhalo, numpy.int32) #variable enters FAST_KHAIN_LYNN and FULL_KHAIN_LYNN but is not used inside
         xlong = zeros2D.copy() #variable enters FULL_KHAIN_LYNN but is not used inside
         xlat = zeros2D.copy() #variable enters FULL_KHAIN_LYNN but is not used inside
@@ -1164,33 +1310,25 @@ class pppy_microPhyWRF(pppy.PPPY):
         f_qt = True
         f_qrimef = True
 
-        #Currently only some schemes are totally plugged:
-        #KESSLERSCHEME, THOMPSON, THOMPSONAERO and FULL_KHAIN_LYNN
+        #Currently only some schemes are totally plugged
         #For these schemes, all necessary variables entering mp_init and/or microphysics_driver are
         #correctly initialized (at least, are supposed to be...)
-        #The variable which are not correctly initialized are shared in two categories:
-        # * first are the immediately following variables:
-        #       the schemes that need these variables are identified,
-        #       scheme name is written as comment on the following lines
-        #       and a tentative to use one of these schemes will
-        #       raise a python error. Please double-check before using this
-        #       information.
-        # * then, other variables (labeled "Other Variables initialization") follow:
-        #   schemes that need them are not identified
+        #The variable which are not correctly initialized receive default values here
+        #Each initisation is followed by a comment indicatint the schemes which need the variable
+        #and a tentative to use one of these schemes will raise a python error.
+        #Please double-check before using this information.
 
         #Variables that must be correctly initialized if using some currently untested schemes
-        f_ice_phy = zeros3D.copy() #fraction of ice for FER_MP_HIRES, FER_MP_HIRES_ADVECT, ETAMPNEW, CAMMGMPSCHEME
-        f_rain_phy = zeros3D.copy() #fraction of rain for FER_MP_HIRES, FER_MP_HIRES_ADVECT, ETAMPNEW, CAMMGMPSCHEME
-        f_rimef_phy = zeros3D.copy() #rimed fraction for FER_MP_HIRES, FER_MP_HIRES_ADVECT, ETAMPNEW, CAMMGMPSCHEME
-        lowlyr = numpy.zeros(shape2Dhalo, numpy.int32) #ETAMPNEW, FER_MP_HIRES and FER_MP_HIRES_ADVECT
-        mp_restart_state = numpy.zeros((43, ), numpy.float32) #ETAMPNEW, FER_MP_HIRES and FER_MP_HIRES_ADVECT
-        tbpvs_state = numpy.zeros((7501, ), numpy.float32) #ETAMPNEW, FER_MP_HIRES and FER_MP_HIRES_ADVECT
-        tbpvs0_state = numpy.zeros((7501, ), numpy.float32) #ETAMPNEW, FER_MP_HIRES and FER_MP_HIRES_ADVECT
+        f_ice_phy = zeros3D.copy() #fraction of ice for ETAMPNEW, CAMMGMPSCHEME (enters but is not used by FER_MP_HIRES_ADVECT)
+        f_rain_phy = zeros3D.copy() #fraction of rain for ETAMPNEW, CAMMGMPSCHEME (enters but is not used by FER_MP_HIRES_ADVECT)
+        f_rimef_phy = zeros3D.copy() + 1. #rimed fraction for ETAMPNEW, CAMMGMPSCHEME (enters but is not used by FER_MP_HIRES_ADVECT)
+        mp_restart_state = numpy.zeros((43, ), numpy.float32) #ETAMPNEW and FER_MP_HIRES_ADVECT
+        tbpvs_state = numpy.zeros((7501, ), numpy.float32) #ETAMPNEW and FER_MP_HIRES_ADVECT
+        tbpvs0_state = numpy.zeros((7501, ), numpy.float32) #ETAMPNEW and FER_MP_HIRES_ADVECT
         ixcldliq = 0 #CAMMGMP
         ixcldice = 0 #CAMMGMP
         ixnumliq = 0 #CAMMGMP
         ixnumice = 0 #CAMMGMP
-        nssl_cccn = 0. #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
         nssl_alphah = 0. #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
         nssl_alphahl = 0. #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
         nssl_ipelec = 0 #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
@@ -1202,19 +1340,12 @@ class pppy_microPhyWRF(pppy.PPPY):
         nssl_rho_qh = 0. #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
         nssl_rho_qhl = 0. #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
         nssl_rho_qs = 0. #NSSL_1MOMLFO, NSSL_1MOM, NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
-        ccn_conc = 0. #WDM5SCHEME, WDM6SCHEME, LINSCHEME, MORR_TWO_MOMENT
-        allowed_to_read = True #WSM3SCHEME, WSM5SCHEME, WSM6SCHEME, ETAMPNEW, FER_MP_HIRES, FER_MP_HIRES_ADVECT
-        spec_zone = 0 #WSM5SCHEME
-        specified = False #WSM5SCHEME
-        channel_switch = False #WSM5SCHEME
         accum_mode, aitken_mode, coarse_mode = 0., 0., 0. #CAMMGMP
         ice2, hail = 0, 0 #GSFCGCESCHEME
         snowh = zeros2D.copy() #CAMMGMP
         qfx = zeros2D.copy() #CAMMGMP (Moisture flux at surface (kg m-2 s-1))
         rliq = numpy.zeros(shape2Dhalo, numpy.float32) #CAMMGMP (Vertically-integrated reserved cloud condensate(m/s))
-        f_qndrop = True #LINSCHEME and MORR_TWO_MOMENT
-        qrimef_curr = zeros3D.copy() #FER_MP_HIRES
-        qt_curr = zeros3D.copy() #ETAMPNEW, FER_MP_HIRES
+        qt_curr = zeros3D.copy() #ETAMPNEW
         lradius = zeros3D.copy() #CAMMGMP
         iradius = zeros3D.copy() #CAMMGMP
         cldfra_old_mp = zeros3D.copy() #CAMMGMP
@@ -1246,94 +1377,28 @@ class pppy_microPhyWRF(pppy.PPPY):
         qib_curr = zeros3D.copy() #P3_1CATEGORY, P3_1CATEGORY_NC
         ri_curr = zeros3D.copy() #SBU_YLINSCHEME
         cu_used = 0 #NSSL_2MOM, NSSL_2MOMG, NSSL_2MOMCCN
+        f_qg = True #GSFCGCESCHEME, LINSCHEME
+        #The following variables are related to orognostic ccn
+        f_qc = True #LINSSHEME and MORR_TWO_MOMENT under some circonstances (call to prescribe_aerosol_mixactivate controlled by chem_opt and progn)
+        f_qi = True #LINSCHEME and MORR_TWO_MOMENT under some circonstances (call to prescribe_aerosol_mixactivate controlled by chem_opt and progn)
+        cldfra = numpy.zeros(shape3Dhalo, numpy.float32) #LINSSHEME and MORR_TWO_MOMENT under some circonstances (call to prescribe_aerosol_mixactivate controlled by chem_opt and progn)
+        cldfra_old = numpy.zeros(shape3Dhalo, numpy.float32) #LINSSHEME and MORR_TWO_MOMENT under some circonstances (call to prescribe_aerosol_mixactivate controlled by chem_opt and progn)
+        chem_opt = 0 #CAMMGMP, LINSCHEME, MORR_TWO_MOMENT, NSSL_2MOM, NSSL_2MOMCCN, NSSL_2MOMG
+        progn = 0 #CAMMGMP, LINSCHEME, MORR_TWO_MOMENT, NSSL_2MOM, NSSL_2MOMCCN, NSSL_2MOMG
+        exch_h = numpy.zeros(shape3Dhalo, numpy.float32) #LINSSHEME and MORR_TWO_MOMENT under some circonstances (call to prescribe_aerosol_mixactivate controlled by chem_opt and progn) and CAMMGMP
+        t8w = numpy.zeros(shape3Dhalo, numpy.float32) #LINSSHEME and MORR_TWO_MOMENT under some circonstances (call to prescribe_aerosol_mixactivate controlled by chem_opt and progn)
 
-        ###Other Variables initialization: boolean
-        f_qc = True
-        f_qi = True
-        f_qg = True
-        ###Other Variables initialization: Integer 0D
-        chem_opt = 0
-        progn = 0
-        gid = 0 #grid id
-        ###Other Variables initialization: Float 0D
-        naer = 0.
-        ###Other Variables initialization: Float 3D
-        t8w = numpy.zeros(shape3Dhalo, numpy.float32)
-        p8w = numpy.zeros(shape3Dhalo, numpy.float32)
-        cldfra = numpy.zeros(shape3Dhalo, numpy.float32)
-        cldfra_old = numpy.zeros(shape3Dhalo, numpy.float32)
-        exch_h = numpy.zeros(shape3Dhalo, numpy.float32)
-        qndrop_curr = numpy.zeros(shape3Dhalo, numpy.float32)
-
-        #Known limitations, there are other
-        messages = ""
-        if self._mp_physics in [self.NSSL_2MOM, self.NSSL_2MOMCCN]:
-            messages += "We must set config_flags%elec_physics\n"
-            messages += "qvolh_curr must be initialized correctly\n"
-        if self._mp_physics in [self.NSSL_1MOM, self.NSSL_2MOM, self.NSSL_2MOMG, self.NSSL_2MOMCCN]:
-            messages += "qvolg_curr must be initialized correctly\n"
-        if self._mp_physics in [self.NSSL_2MOM, self.NSSL_2MOMG, self.NSSL_2MOMCCN]:
-            messages += "cu_used must be initialized correctly\n"
-        if self._mp_physics in [self.WSM6SCHEME, self.MORR_TWO_MOMENT, self.WDM6SCHEME]:
-            messages += "We must set config_flags%hail_opt\n"
-        if self._mp_physics in [self.CAMMGMPSCHEME]:
-            messages += "We must set config_flags%chem_opt, config_flags%shcu_physics, " + \
-                        "config_flags%cu_physics and config_flags%CAM_MP_MAM_cpled\n"
-            messages += "accum_mode, aitken_mode and coarse_mode must be initialized correctly\n"
-            messages += "snowh, qfx and rliq must be initialized correctly\n"
-            messages += "lradius, iradius must be initialized correctly\n"
-            messages += "cldfra_old_mp, cldfra_mp, cldfra_mp_all, " + \
-                        "cldfrai, cldfral and cldfra_conv must be initialized correctly\n"
-            messages += "wsedl3d must be initialized correctly\n"
-            messages += "ixcldliq, ixcldice, ixnumliq, ixnumice must be initialized correctly\n"
-            messages += "dlf, dlf2, icwmrsh3d, icwmrdp3d, shfrc3d, cmfmc3d, " + \
-                        "cmfmc2_3d must be initialized correctly\n"
-            messages += "t_phy, p_hyd, p8w_hyd, tke_pbl, turbtype3d, smaw3d, alt, " + \
-                        "rh_old_mp, lcd_old_mp must be initialized correctly\n"
-        if self._mp_physics in [self.ETAMPNEW]:
-            messages += "mp_restart_state,tbpvs_state,tbpvs0_state must be initialized\n"
-        if self._mp_physics in [self.ETAMPNEW, self.FER_MP_HIRES, self.FER_MP_HIRES_ADVECT]:
-            messages += "MPDT and lowlyr must be initialized correctly\n"
-        if self._mp_physics in [self.FER_MP_HIRES, self.FER_MP_HIRES_ADVECT,
-                          self.ETAMPNEW, self.CAMMGMPSCHEME]:
-            messages += "f_ice_phy, f_rain_phy must be initialized correctly\n"
-        if self._mp_physics in [self.NSSL_1MOMLFO, self.NSSL_1MOM, self.NSSL_2MOM,
-                          self.NSSL_2MOMG, self.NSSL_2MOMCCN]:
-            messages += "nssl_* variables must be initialized correctly\n"
-        if self._mp_physics in [self.WDM5SCHEME, self.WDM6SCHEME,
-                                self.LINSCHEME, self.MORR_TWO_MOMENT]:
-            messages += "ccn_conc must be initialized correctly\n"
-        if self._mp_physics == self.WSM5SCHEME:
-            messages += "ips, jps, ipe and jpe must be initialized correctly\n"
-            messages += "spec_zone, specified and channel_switch must be initialized correctly\n"
-        if self._mp_physics in [self.WSM3SCHEME, self.WSM5SCHEME, self.WSM6SCHEME, self.ETAMPNEW,
-                          self.FER_MP_HIRES, self.FER_MP_HIRES_ADVECT]:
-            messages += "allowed_to_read must be initialized correctly\n"
-        if self._mp_physics in [self.LINSCHEME, self.MORR_TWO_MOMENT, self.GSFCGCESCHEME,
-                          self.SBU_YLINSCHEME, self.CAMMGMPSCHEME]:
-            messages += "z must be initialized correctly " + \
-                        "(except if it is only used for the sedimentation)\n"
-        if self._mp_physics == self.GSFCGCESCHEME:
-            messages += "ice2 and hail must be used to select mode\n"
-        if self._mp_physics in [self.LINSCHEME, self.MORR_TWO_MOMENT]:
-            messages += "f_qndrop must be initialized correctly\n"
-        if self._mp_physics == self.FER_MP_HIRES:
-            messages += "qrimef_curr must be initialized correctly\n"
-        if self._mp_physics in [self.ETAMPNEW, self.FER_MP_HIRES]:
-            messages += "qt_curr must be initialized correctly\n"
-        if self._mp_physics in [self.P3_1CATEGORY, self.P3_1CATEGORY_NC]:
-            messages += "qir_curr and qib_curr must be initialized correctly\n"
-        if self._mp_physics == self.SBU_YLINSCHEME:
-            messages += "ri_curr must be initialized correctly\n"
-        if messages != "":
-            raise NotImplementedError(messages)
-        if self._mp_physics not in [self.KESSLERSCHEME, self.THOMPSON,
-                              self.THOMPSONAERO, self.FULL_KHAIN_LYNN]:
+        if mp_physics not in [self.KESSLERSCHEME, self.THOMPSON,
+                              self.THOMPSONAERO, self.FULL_KHAIN_LYNN,
+                              self.WSM3SCHEME, self.WSM5SCHEME, self.WSM6SCHEME,
+                              self.WDM5SCHEME, self.WDM6SCHEME,
+                              self.MILBRANDT2MOM, self.MORR_TWO_MOMENT,
+                              self.FER_MP_HIRES_ADVECT]:
             raise NotImplementedError("Even if no identified issue has been found, " +
                                       "this scheme has not been tested")
 
         #Calling Initialization
-        result = self._mp_init_py(self._mp_physics, cycling,
+        result = self._mp_init_py(mp_physics, cycling, self._options.get('hail_opt', 0),
                                   rainnc, snownc, graupelnc,
                                   restart,
                                   MPDT, dt, dx, dy, lowlyr, f_ice_phy, f_rain_phy, f_rimef_phy,
@@ -1346,28 +1411,33 @@ class pppy_microPhyWRF(pppy.PPPY):
                                   ids, ide, jds, jde, kds, kde, ims, ime,
                                   jms, jme, kms, kme, its, ite, jts, jte, kts, kte)
         (rainnc, snownc, graupelnc, warm_rain,
-         adv_moist_cond, lowly, f_ice_phy, f_rain_phy, f_rimef_phy,
+         adv_moist_cond, lowlyr, f_ice_phy, f_rain_phy, f_rimef_phy,
          mp_restart_state, tbpvs_state, tbpvs0_state, ccn_conc, qnwfa2d, scalar) = result
 
-        if self._mp_physics == self.THOMPSONAERO:
+        if mp_physics == self.THOMPSONAERO:
             qnwfa_curr = scalar[..., 0]
             qnifa_curr = scalar[..., 1]
-            if not self._enableCCNsource:
+            if not self._options['enableCCNsource']:
                 qnwfa2d = qnwfa2d * 0.
 
-        if self._mp_physics == self.FULL_KHAIN_LYNN:
-            if (self._enableCCNinit or self._dx > 7500.) and itimestep == 1:
+        if mp_physics == self.FULL_KHAIN_LYNN:
+            if (self._options['enableCCNinit'] or self._options['dx'] > 7500.) and itimestep == 1:
                 logging.warning("CCN initialization of FULL_KHAIN_LYNN will consider that " +
                                 "all points are near the surface (because of dz8w values)")
-            if self._dx > 7500. and itimestep == 1:
+            if self._options['dx'] > 7500. and itimestep == 1:
                 logging.info("CCN of FULL_KHAIN_LYNN will be reset at each timestep")
-            if not self._enableCCNinit:
+            if not self._options['enableCCNinit']:
                 itimestep = max(itimestep, 2)
 
         #Calling Microphysics driver
+        if chem_opt in [0, 401] and progn == 1 and mp_physics in [self.LINSCHEME, self.MORR_TWO_MOMENT]:
+            #At least, f_qc, f_qi, exch_h, cldfra, clfra_old and t8w must be initialised correctly
+            raise NotImplementedError("In this case (chem_opt, progn and mp_physics combination), " + \
+                                      "prescribe_aerosol_mixactivate will be called. Code is not ready for that.")
+        f_qndrop = self._options.get('enableProgNc', False)
         result = self._microphysics_driver_py(th, rho, pi_phy, p,
                                               ht, dz8w, p8w, dt,dx,dy,
-                                              self._mp_physics, spec_zone,
+                                              mp_physics, spec_zone,
                                               specified, channel_switch,
                                               warm_rain,
                                               t8w,
@@ -1465,7 +1535,7 @@ class pppy_microPhyWRF(pppy.PPPY):
 
         #Old values
         to64 = self._to64
-        del_halo = self._del_halo
+        del_halo = lambda a: self._del_halo(a,  shape3Dhalo[1] != shape3D[2]) #revert axes and del halo
         if 'th_old' in previous_state:
             next_state['th_old'] = to64(del_halo(th_save)).reshape(shapeOri3D)
         if 'qv_old' in previous_state:
@@ -1477,7 +1547,7 @@ class pppy_microPhyWRF(pppy.PPPY):
         next_state['rc'] = to64(del_halo(qc_curr)).reshape(shapeOri3D)
         next_state['rr'] = to64(del_halo(qr_curr)).reshape(shapeOri3D)
 
-        if self._mp_physics == self.FULL_KHAIN_LYNN:
+        if mp_physics == self.FULL_KHAIN_LYNN:
             next_state['ric'] = to64(del_halo(qic_curr)).reshape(shapeOri3D)
             next_state['rip'] = to64(del_halo(qip_curr)).reshape(shapeOri3D)
             next_state['rid'] = to64(del_halo(qid_curr)).reshape(shapeOri3D)
@@ -1488,14 +1558,6 @@ class pppy_microPhyWRF(pppy.PPPY):
             next_state['ni'] = next_state['nip'] + next_state['nic'] + next_state['nid']
             next_state['scalar'] = to64(del_halo(scalar)).reshape(tuple(list(shapeOri3D) + [265]))
             next_state['ccn1ft'] = to64(del_halo(qnn_curr)).reshape(shapeOri3D)
-        if self._mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
-            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
-            next_state['ni'] = to64(del_halo(qni_curr)).reshape(shapeOri3D)
-        if self._mp_physics == self.THOMPSONAERO:
-            next_state['ccn1ft'] = to64(del_halo(qnwfa_curr)).reshape(shapeOri3D)
-            next_state['ifn1ft'] = to64(del_halo(qnifa_curr)).reshape(shapeOri3D)
-            next_state['nwfa2d'] = to64(del_halo(qnwfa2d)).reshape(shapeOri2D)
-        if self._mp_physics in [self.THOMPSON, self.THOMPSONAERO, self.FULL_KHAIN_LYNN]:
             next_state['rs'] = to64(del_halo(qs_curr)).reshape(shapeOri3D)
             next_state['rg'] = to64(del_halo(qg_curr)).reshape(shapeOri3D)
             next_state['rh'] = to64(del_halo(qh_curr)).reshape(shapeOri3D)
@@ -1504,5 +1566,59 @@ class pppy_microPhyWRF(pppy.PPPY):
             next_state['ns'] = to64(del_halo(qns_curr)).reshape(shapeOri3D)
             next_state['ng'] = to64(del_halo(qng_curr)).reshape(shapeOri3D)
             next_state['nh'] = to64(del_halo(qnh_curr)).reshape(shapeOri3D)
+        elif mp_physics in [self.THOMPSON, self.THOMPSONAERO]:
+            next_state['rs'] = to64(del_halo(qs_curr)).reshape(shapeOri3D)
+            next_state['rg'] = to64(del_halo(qg_curr)).reshape(shapeOri3D)
+            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
+            next_state['ni'] = to64(del_halo(qni_curr)).reshape(shapeOri3D)
+            next_state['nr'] = to64(del_halo(qnr_curr)).reshape(shapeOri3D)
+            if mp_physics == self.THOMPSONAERO:
+                next_state['ccn1ft'] = to64(del_halo(qnwfa_curr)).reshape(shapeOri3D)
+                next_state['ifn1ft'] = to64(del_halo(qnifa_curr)).reshape(shapeOri3D)
+                next_state['nwfa2d'] = to64(del_halo(qnwfa2d)).reshape(shapeOri2D)
+                next_state['nc'] = to64(del_halo(qnc_curr)).reshape(shapeOri3D)
+        elif mp_physics in [self.WSM6SCHEME, self.WDM6SCHEME]:
+            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
+            next_state['rs'] = to64(del_halo(qs_curr)).reshape(shapeOri3D)
+            next_state['rg'] = to64(del_halo(qg_curr)).reshape(shapeOri3D)
+            if mp_physics == self.WDM6SCHEME:
+                next_state['ccn1ft'] = to64(del_halo(qnn_curr)).reshape(shapeOri3D)
+                next_state['nc'] = to64(del_halo(qnc_curr)).reshape(shapeOri3D)
+                next_state['nr'] = to64(del_halo(qnr_curr)).reshape(shapeOri3D)
+        elif mp_physics in [self.WSM5SCHEME, self.WDM5SCHEME]:
+            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
+            next_state['rs'] = to64(del_halo(qs_curr)).reshape(shapeOri3D)
+            if mp_physics == self.WDM5SCHEME:
+                next_state['ccn1ft'] = to64(del_halo(qnn_curr)).reshape(shapeOri3D)
+                next_state['nc'] = to64(del_halo(qnc_curr)).reshape(shapeOri3D)
+                next_state['nr'] = to64(del_halo(qnr_curr)).reshape(shapeOri3D)
+        elif mp_physics == self.MILBRANDT2MOM:
+            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
+            next_state['rs'] = to64(del_halo(qs_curr)).reshape(shapeOri3D)
+            next_state['rg'] = to64(del_halo(qg_curr)).reshape(shapeOri3D)
+            next_state['rh'] = to64(del_halo(qh_curr)).reshape(shapeOri3D)
+            next_state['nc'] = to64(del_halo(qnc_curr)).reshape(shapeOri3D)
+            next_state['nr'] = to64(del_halo(qnr_curr)).reshape(shapeOri3D)
+            next_state['ni'] = to64(del_halo(qni_curr)).reshape(shapeOri3D)
+            next_state['ns'] = to64(del_halo(qns_curr)).reshape(shapeOri3D)
+            next_state['ng'] = to64(del_halo(qng_curr)).reshape(shapeOri3D)
+            next_state['nh'] = to64(del_halo(qnh_curr)).reshape(shapeOri3D)
+        elif mp_physics == self.FER_MP_HIRES_ADVECT:
+            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
+            next_state['rimef'] = to64(del_halo(qrimef_curr)).reshape(shapeOri3D)
+        elif mp_physics in [self.KESSLERSCHEME, self.WSM3SCHEME]:
+            pass
+        elif mp_physics == self.MORR_TWO_MOMENT:
+            next_state['ri'] = to64(del_halo(qi_curr)).reshape(shapeOri3D)
+            next_state['rs'] = to64(del_halo(qs_curr)).reshape(shapeOri3D)
+            next_state['rg'] = to64(del_halo(qg_curr)).reshape(shapeOri3D)
+            next_state['nr'] = to64(del_halo(qnr_curr)).reshape(shapeOri3D)
+            next_state['ni'] = to64(del_halo(qni_curr)).reshape(shapeOri3D)
+            next_state['ns'] = to64(del_halo(qns_curr)).reshape(shapeOri3D)
+            next_state['ng'] = to64(del_halo(qng_curr)).reshape(shapeOri3D)
+            if self._options['enableProgNc']:
+                next_state['nc'] = to64(del_halo(qndrop_curr)).reshape(shapeOri3D)
+        else:
+            raise NotImplementedError("Output arrays are not saved for this scheme: " + str(mp_physics))
 
         return next_state

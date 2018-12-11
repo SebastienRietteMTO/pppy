@@ -10,7 +10,8 @@ SUBROUTINE other_init_py()
    P_QNIFA=2
 END SUBROUTINE other_init_py
 
-SUBROUTINE mp_init_py(mp_physics,cycling_1byte, RAINNC,SNOWNC,GRAUPELNC,restart_1byte,warm_rain_1byte,      &
+SUBROUTINE mp_init_py(mp_physics,cycling_1byte, hail_opt, &
+                      RAINNC,SNOWNC,GRAUPELNC,restart_1byte,warm_rain_1byte,      &
                       adv_moist_cond_1byte,                             &
                       MPDT, DT, DX, DY, LOWLYR,                   & ! for eta mp
                       F_ICE_PHY,F_RAIN_PHY,F_RIMEF_PHY,           & ! for eta mp
@@ -31,6 +32,7 @@ SUBROUTINE mp_init_py(mp_physics,cycling_1byte, RAINNC,SNOWNC,GRAUPELNC,restart_
                       its, ite, jts, jte, kts, kte                )
 
 IMPLICIT NONE
+   INTEGER, INTENT(IN) :: hail_opt
    LOGICAL(KIND=1) , INTENT(IN)        :: restart_1byte
    LOGICAL , INTENT(OUT)       :: warm_rain_1byte,adv_moist_cond_1byte
    REAL    , INTENT(IN)        :: MPDT, DT, DX, DY
@@ -76,8 +78,9 @@ IMPLICIT NONE
 
   !config_flags is a fortran structured that cannot be passed through fortran/python interface
   !so, we pass usefull components of the structure
-  config_flags%mp_physics = mp_physics
-  config_flags%cycling = cycling
+  config_flags%mp_physics = mp_physics !integer , DIMENSION(max_domains)
+  config_flags%cycling = cycling !logical
+  config_flags%hail_opt = hail_opt !integer
 
   CALL INIT_GFORTRAN_BIG_ENDIAN()
 

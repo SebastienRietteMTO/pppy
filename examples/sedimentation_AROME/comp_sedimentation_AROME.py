@@ -82,8 +82,8 @@ if comp == 1:
             'output_dir': output_dir,
             'duration': 3600.,
             'init_state': init_state,
-            'experiment_name': "First sedimentation test",
-            'experiment_tag': "firstSedimTest"
+            'name': "First sedimentation test",
+            'tag': "firstSedimTest"
            }
     comp = PPPYComp(**conf)
     comp.run(force=False)
@@ -119,8 +119,8 @@ elif comp == 2:
             'output_dir': output_dir,
             'duration': 1080.,
             'init_state': init_state,
-            'experiment_name': "First sedimentation test",
-            'experiment_tag': "firstSedimTest"
+            'name': "First sedimentation test",
+            'tag': "firstSedimTest"
            }
 
     comp = PPPYComp(**conf)

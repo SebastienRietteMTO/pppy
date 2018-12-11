@@ -19,8 +19,8 @@ import logging
 logging.basicConfig(level=getattr(logging, 'DEBUG', None))
 
 from pppy import PPPYComp, VAR_NAME, VAR_UNIT
-from pppy_microPhyIce_MNH54 import pppy_microPhyIce_MNH54
-from pppy_microPhyLima_MNH54 import pppy_microPhyLima_MNH54
+from pppy_microPhyMNH54_ICE import pppy_microPhyMNH54_ICE
+from pppy_microPhyMNH54_LIMA import pppy_microPhyMNH54_LIMA
 from pppy_microPhyWRF import pppy_microPhyWRF
 
 #Configuration of comparison
@@ -34,7 +34,7 @@ dtList = [0.001, 0.01, 0.1, 1., 5., 10., 15., 20.]
 dtList = [1., 5., 10., 15.]
 iv = '4' #4 to use hail in ICE and LIMA, 3 otherwise
 
-old = {dt:pppy_microPhyIce_MNH54(solib=solib_MNH,
+old = {dt:pppy_microPhyMNH54_ICE(solib=solib_MNH,
                                  dt=dt, method='step-by-step',
                                  name="old ICE" + iv + " scheme with dt=" + str(dt) +"s",
                                  tag="OLD" + iv + "_dt=" + str(dt),
@@ -42,7 +42,7 @@ old = {dt:pppy_microPhyIce_MNH54(solib=solib_MNH,
                                  HSUBG_PR_PDF='SIGM'.ljust(80))
           for dt in dtList}
 
-ice = {dt:pppy_microPhyIce_MNH54(solib=solib_MNH,
+ice = {dt:pppy_microPhyMNH54_ICE(solib=solib_MNH,
                                  dt=dt, method='step-by-step',
                                  name="new ICE" + iv + " scheme with dt=" + str(dt) +"s",
                                  tag="ICE" + iv + "_dt=" + str(dt),
@@ -51,7 +51,7 @@ ice = {dt:pppy_microPhyIce_MNH54(solib=solib_MNH,
                                  maxiter=100, mrstep=5.E-5, tstep_ts=0., frac_ice_adjust='S')
           for dt in dtList}
 
-lima = {dt:pppy_microPhyLima_MNH54(solib=solib_MNH,
+lima = {dt:pppy_microPhyMNH54_LIMA(solib=solib_MNH,
                                    dt=dt, method='step-by-step',
                                    name="LIMA" + iv + " scheme with dt=" + str(dt) +"s",
                                    tag="LIMA_" + iv+ "_dt=" + str(dt),
@@ -154,8 +154,8 @@ conf = {
         'output_dir': output_dir,
         'duration': 100.,
         'init_state': {'cold':cold_state, 'cold2':cold2_state, 'warm':warm_state}[state],
-        'experiment_name': comp_name,
-        'experiment_tag': "test_MNH_WRF_" + state
+        'name': comp_name,
+        'tag': "test_MNH_WRF_" + state
        }
 
 #Run all simulations
@@ -165,7 +165,7 @@ comp.run(force=False)
 #Plots by timestep
 for dt in dtList:
     conf['schemes'] = scheme_list_dt[dt]
-    conf['experiment_name'] = comp_name + ", dt=" + str(dt)
+    conf['name'] = comp_name + ", dt=" + str(dt)
     comp = PPPYComp(**conf)
     fig1, plots = comp.plot_multi((2, 3), [('evol', dict(var_names=[s])
                                            ) for s in ['rv','rc', 'rr', 'T', 'nc', 'nr']],
@@ -174,15 +174,15 @@ for dt in dtList:
                                            ) for s in ['ri','rs', 'rg', 'rh',
                                                        'ni', 'ns', 'ng', 'nh']],
                                   figsize=(24, 14))
-    fig1.savefig(conf['experiment_tag'] + "/fig1_dt=" + str(dt) + ".png")
-    fig2.savefig(conf['experiment_tag'] + "/fig2_dt=" + str(dt) + ".png")
+    fig1.savefig(conf['tag'] + "/fig1_dt=" + str(dt) + ".png")
+    fig2.savefig(conf['tag'] + "/fig2_dt=" + str(dt) + ".png")
     plt.close(fig1)
     plt.close(fig2)
 
 #Plots by scheme
 for schemeTag in scheme_list_sch.keys():
     conf['schemes'] = scheme_list_sch[schemeTag]
-    conf['experiment_name'] = comp_name + ", " + long_names[schemeTag]
+    conf['name'] = comp_name + ", " + long_names[schemeTag]
     comp = PPPYComp(**conf)
     fig1, plots = comp.plot_multi((2, 3), [('evol', dict(var_names=[s])
                                            ) for s in ['rv','rc', 'rr', 'T', 'nc', 'nr']],
@@ -191,8 +191,8 @@ for schemeTag in scheme_list_sch.keys():
                                            ) for s in ['ri','rs', 'rg', 'rh',
                                                        'ni', 'ns', 'ng', 'nh']],
                                   figsize=(24, 14))
-    fig1.savefig(conf['experiment_tag'] + "/fig1_sch=" + schemeTag + ".png")
-    fig2.savefig(conf['experiment_tag'] + "/fig2_sch=" + schemeTag + ".png")
+    fig1.savefig(conf['tag'] + "/fig1_sch=" + schemeTag + ".png")
+    fig2.savefig(conf['tag'] + "/fig2_sch=" + schemeTag + ".png")
     plt.close(fig1)
     plt.close(fig2)
 
@@ -200,7 +200,7 @@ for schemeTag in scheme_list_sch.keys():
 for scheme in scheme_list_all:
     scheme.name = scheme.name.split()[-1]
 conf['schemes'] = scheme_list_all
-conf['experiment_name'] = comp_name
+conf['name'] = comp_name
 comp = PPPYComp(**conf)
 for var in ['rv','rc', 'rr', 'ri','rs', 'rg', 'rh', 'T', 'nc', 'nr', 'ni', 'ns', 'ng', 'nh']:
     plots = [('evol', dict(var_names=[var],
@@ -213,5 +213,5 @@ for var in ['rv','rc', 'rr', 'ri','rs', 'rg', 'rh', 'T', 'nc', 'nr', 'ni', 'ns',
                                  title=VAR_NAME[var] + " (" + VAR_UNIT[var] + ")",
                                  figsize=(24, 14), sharey=True)
     fig.tight_layout(pad=5)
-    fig.savefig(conf['experiment_tag'] + "/var=" + var + ".png")
+    fig.savefig(conf['tag'] + "/var=" + var + ".png")
 

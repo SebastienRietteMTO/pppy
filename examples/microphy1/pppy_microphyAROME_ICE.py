@@ -16,7 +16,7 @@ import os
 from pppy import ctypesForFortran
 import pppy
 
-class pppy_ice3ice4(pppy.PPPY):
+class pppy_microphyAROME_ICE(pppy.PPPY):
     """
     PPPY implementation for calling microphysical scheme of AROME model.
     """
@@ -49,8 +49,6 @@ class pppy_ice3ice4(pppy.PPPY):
                            HSUBG_PR_PDF=HSUBG_PR_PDF, LCRFLIMIT=LCRFLIMIT,
                            adjustment=adjustment)
         super().__init__(dt, method, name, tag, solib=solib, **ice_options)
-        self._solib = solib
-        self._ice_options = ice_options
 
         self._handle = None
         self._aroini_micro = None
@@ -75,7 +73,7 @@ class pppy_ice3ice4(pppy.PPPY):
         OUT = ctypesForFortran.OUT
         INOUT = ctypesForFortran.INOUT
 
-        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._solib)
+        ctypesFF, self._handle = ctypesForFortran.ctypesForFortranFactory(self._options['solib'])
 
         @ctypesFF()
         def aroini_micro_py(KULOUT, PTSTEP, LDWARM, CMICRO, CCSEDIM, LDCRIAUTI, PCRIAUTI,
@@ -130,7 +128,7 @@ class pppy_ice3ice4(pppy.PPPY):
         self._aroini_micro = aroini_micro_py
 
         @ctypesFF()
-        def ini_cst_py(*args):
+        def ini_cst_py():
             "This function calls the ini_cst_py fortran subroutine"
             return ([], [], None)
         self._ini_cst = ini_cst_py
@@ -278,21 +276,21 @@ class pppy_ice3ice4(pppy.PPPY):
                     None)
         self._ice_adjust_py = ice_adjust_py
 
-        if self._ice_options['ice_version'] not in ['ICE3', 'ICE4']:
+        if self._options['ice_version'] not in ['ICE3', 'ICE4']:
             raise ValueError("ice_version must be 'ICE3' or 'ICE4'")
         self._ini_cst()
         self._KSPLITR = self._aroini_micro(1, self._dt, True,
-                                           self._ice_options['ice_version'], 'STAT',
+                                           self._options['ice_version'], 'STAT',
                                            False, 0., 0., 0.,
-                                           self._ice_options['XTSTEP_TS'],
-                                           self._ice_options['CSNOWRIMING'],
-                                           self._ice_options['XMRSTEP'],
-                                           self._ice_options['NMAXITER'], True, True, True,
+                                           self._options['XTSTEP_TS'],
+                                           self._options['CSNOWRIMING'],
+                                           self._options['XMRSTEP'],
+                                           self._options['NMAXITER'], True, True, True,
                                            True, True, True, 0.1, True,
-                                           self._ice_options['HSUBG_RC_RR_ACCR'],
-                                           self._ice_options['HSUBG_RR_EVAP'],
-                                           self._ice_options['HSUBG_PR_PDF'],
-                                           self._ice_options['LCRFLIMIT'], False, True,
+                                           self._options['HSUBG_RC_RR_ACCR'],
+                                           self._options['HSUBG_RR_EVAP'],
+                                           self._options['HSUBG_PR_PDF'],
+                                           self._options['LCRFLIMIT'], False, True,
                                            'T', 0.8, 'T', False)
     def finalize(self):
         """
@@ -311,12 +309,12 @@ class pppy_ice3ice4(pppy.PPPY):
         """
         state = super().build_init_state(state)
         needed = ['T', 'P', 'rv', 'rc', 'rr', 'ri', 'rs', 'rg']
-        if self._ice_options['ice_version'] == 'ICE4':
+        if self._options['ice_version'] == 'ICE4':
             needed += ['rh']
         for var in needed:
             if var not in state:
                 raise ValueError(var + " must be in state")
-        if self._ice_options['ice_version'] == 'ICE3' and 'rh' in state:
+        if self._options['ice_version'] == 'ICE3' and 'rh' in state:
             state['rg'] += state['rh']
             state['rh'] = state['rh'] * 0.
         if not 'ni' in state:
@@ -335,7 +333,7 @@ class pppy_ice3ice4(pppy.PPPY):
         OSEDIC = False
         HSEDIM = 'NONE'
         OWARM = True
-        hail = self._ice_options['ice_version'] == 'ICE4'
+        hail = self._options['ice_version'] == 'ICE4'
 
         #Dimensions
         PT = previous_state['T']
@@ -386,7 +384,7 @@ class pppy_ice3ice4(pppy.PPPY):
             PRH = previous_state['rg'].reshape(shape) * 0.
 
         #Adjustment
-        if self._ice_options['adjustment']:
+        if self._options['adjustment']:
             PTHT, PRV, PRC, PRI = self._ice_adjust_py(shape[0], shape[1], shape[2], timestep, 0.,
                                                       PRHODJ, PEXN,
                                                       previous_state['SIGS'].reshape(shape),
@@ -409,7 +407,7 @@ class pppy_ice3ice4(pppy.PPPY):
         rain_ice_py = self._rain_ice_py_4 if hail else self._rain_ice_py_3
 
         result = rain_ice_py(shape[0], shape[1], shape[2],
-                             OSEDIC, HSEDIM, self._ice_options['HSUBG_AUCV_RC'], OWARM,
+                             OSEDIC, HSEDIM, self._options['HSUBG_AUCV_RC'], OWARM,
                              KKA, KKU, KKL, self._KSPLITR,
                              timestep, KMI, 7 if hail else 6,
                              LDMICRO, PEXN, PDZZ, PRHODJ, PRHODREF, PEXN,
@@ -420,7 +418,7 @@ class pppy_ice3ice4(pppy.PPPY):
                              previous_state['SIGS'].reshape(shape), PSEA, PTOWN,
                              *([] if not hail else [PRH, PRHS]))
         next_state = {}
-        if self._ice_options['ice_version'] == 'ICE3':
+        if self._options['ice_version'] == 'ICE3':
             (next_state['ni'], PTHS, PRVS, PRCS, PRRS, PRIS, PRSS, PRGS,
              PINPRC, PINPRR, PEVAP3D, PINPRS, PINPRG) = result
         else:

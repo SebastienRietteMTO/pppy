@@ -11,12 +11,13 @@
 This module contains an implementation of PPPY suitable to call microphysical
 LIMA scheme from the Meso-NH model.
 """
+
 import numpy
 import os
 from pppy import ctypesForFortran
 import pppy
 
-class pppy_microPhyLima_MNH53(pppy.PPPY):
+class pppy_microPhyMNH54_LIMA(pppy.PPPY):
     """
     PPPY implementation for calling the microphysical LIMA scheme of the Meso-NH model.
     """
@@ -108,7 +109,6 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
                             XFSOLUB_CCN=XFSOLUB_CCN, XACTEMP_CCN=XACTEMP_CCN,
                             XAERDIFF=XAERDIFF, XAERHEIGHT=XAERHEIGHT,
                             LSCAV=LSCAV, LAERO_MASS=LAERO_MASS)
-        self._lima_options = lima_options
         self._solib = solib
         super().__init__(dt, method, name, tag, solib=solib, **lima_options)
 
@@ -286,6 +286,7 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
                      (numpy.float64, (K1, K2), OUT), #REAL, DIMENSION(K1,K2),      INTENT(OUT)   :: PINPRS! Snow instant precip
                      (numpy.float64, (K1, K2), OUT), #REAL, DIMENSION(K1,K2),      INTENT(OUT)   :: PINPRG! Graupel instant precip
                      (numpy.float64, (K1, K2), OUT), #REAL, DIMENSION(K1,K2),      INTENT(OUT)   :: PINPRH! Graupel instant precip
+                     (numpy.float64, (K1, K2), OUT), #REAL, DIMENSION(K1,K2),      INTENT(OUT)   :: PINDEP!Cloud droplets deposition
                     ],
                     None)
         self._lima_py = lima_py
@@ -294,72 +295,22 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         LDCRIAUTI = False
         PCRIAUTI, PT0CRIAUTI, PCRIAUTC = 0., 0., 0.
 
-        LDWARM = self._lima_options['LDWARM']
-        LNUCL_IN = self._lima_options['LNUCL']
-        LCOLD_IN = self._lima_options['LCOLD']
-        LSNOW_IN = self._lima_options['LSNOW']
-        LHAIL_IN = self._lima_options['LHAIL']
-        LHHONI_IN = self._lima_options['LHHONI']
-        LMEYERS_IN = self._lima_options['LMEYERS']
-        NMOD_IFN_IN = self._lima_options['NMOD_IFN']
-        CIFN1_IN = self._lima_options['CIFN1']
-        CIFN2_IN = self._lima_options['CIFN2']
-        IFN_HOM_IN = self._lima_options['IFN_HOM']
-        IFN_SPECIES_IN = self._lima_options['IFN_SPECIES']
-        INT_MIXING_IN = self._lima_options['INT_MIXING']
-        NMOD_IMM_IN = self._lima_options['NMOD_IMM']
-        IND_SPECIE_IN = self._lima_options['IND_SPECIE']
-        CPRISTINE_ICE_LIMA_IN = self._lima_options['CPRISTINE_ICE_LIMA']
-        CHEVRIMED_ICE_LIMA_IN = self._lima_options['CHEVRIMED_ICE_LIMA']
-        XALPHAI_IN = self._lima_options['XALPHAI']
-        XNUI_IN = self._lima_options['XNUI']
-        XALPHAS_IN = self._lima_options['XALPHAS']
-        XNUS_IN = self._lima_options['XNUS']
-        XALPHAG_IN = self._lima_options['XALPHAG']
-        XNUG_IN = self._lima_options['XNUG']
-        XFACTNUC_DEP_IN = self._lima_options['XFACTNUC_DEP']
-        XFACTNUC_CON_IN = self._lima_options['XFACTNUC_CON']
-        NPHILLIPS_IN = self._lima_options['NPHILLIPS']
-        LWARM_IN = self._lima_options['LWARM']
-        LACTI_IN = self._lima_options['LACTI']
-        LRAIN_IN = self._lima_options['LRAIN']
-        LSEDC_IN = self._lima_options['LSEDC']
-        LACTIT_IN = self._lima_options['LACTIT']
-        NMOD_CCN_IN = self._lima_options['NMOD_CCN']
-        CCCN1_IN = self._lima_options['CCCN1']
-        CCCN2_IN = self._lima_options['CCCN2']
-        CCCN3_IN = self._lima_options['CCCN3']
-        CCCN4_IN = self._lima_options['CCCN4']
-        CCN_HOM_IN = self._lima_options['CCN_HOM']
-        CCN_MODES_IN = self._lima_options['CCN_MODES']
-        HINI_CCN_IN = self._lima_options['HINI_CCN']
-        HTYPE_CCN_IN = self._lima_options['HTYPE_CCN']
-        XALPHAC_IN = self._lima_options['XALPHAC']
-        XNUC_IN = self._lima_options['XNUC']
-        XALPHAR_IN = self._lima_options['XALPHAR']
-        XNUR_IN = self._lima_options['XNUR']
-        XFSOLUB_CCN_IN = self._lima_options['XFSOLUB_CCN']
-        XACTEMP_CCN_IN = self._lima_options['XACTEMP_CCN']
-        XAERDIFF_IN = self._lima_options['XAERDIFF']
-        XAERHEIGHT_IN = self._lima_options['XAERHEIGHT']
-        LSCAV_IN = self._lima_options['LSCAV']
-        LAERO_MASS_IN = self._lima_options['LAERO_MASS']
-
+        o = self._options
         self._KSPLITR, self._KSPLITG = self._init_lima_py(
-                         self._dt, LDWARM, 'LIMA', CCSEDIM,
+                         self._dt, o['LDWARM'], 'LIMA', CCSEDIM,
                          LDCRIAUTI, PCRIAUTI, PT0CRIAUTI, PCRIAUTC,
-                         LNUCL_IN, LCOLD_IN, LSNOW_IN, LHAIL_IN, LHHONI_IN, LMEYERS_IN,
-                         NMOD_IFN_IN, CIFN1_IN, CIFN2_IN, IFN_HOM_IN,
-                         IFN_SPECIES_IN, INT_MIXING_IN, NMOD_IMM_IN, IND_SPECIE_IN,
-                         CPRISTINE_ICE_LIMA_IN, CHEVRIMED_ICE_LIMA_IN,
-                         XALPHAI_IN, XNUI_IN, XALPHAS_IN, XNUS_IN, XALPHAG_IN, XNUG_IN,
-                         XFACTNUC_DEP_IN, XFACTNUC_CON_IN, NPHILLIPS_IN,
-                         LWARM_IN, LACTI_IN, LRAIN_IN, LSEDC_IN, LACTIT_IN, False,
-                         NMOD_CCN_IN, CCCN1_IN, CCCN2_IN, CCCN3_IN, CCCN4_IN,
-                         CCN_HOM_IN, CCN_MODES_IN, HINI_CCN_IN, HTYPE_CCN_IN,
-                         XALPHAC_IN, XNUC_IN, XALPHAR_IN, XNUR_IN,
-                         XFSOLUB_CCN_IN, XACTEMP_CCN_IN, XAERDIFF_IN, XAERHEIGHT_IN,
-                         LSCAV_IN, LAERO_MASS_IN)
+                         o['LNUCL'], o['LCOLD'], o['LSNOW'], o['LHAIL'], o['LHHONI'], o['LMEYERS'],
+                         o['NMOD_IFN'], o['CIFN1'], o['CIFN2'], o['IFN_HOM'],
+                         o['IFN_SPECIES'], o['INT_MIXING'], o['NMOD_IMM'], o['IND_SPECIE'],
+                         o['CPRISTINE_ICE_LIMA'], o['CHEVRIMED_ICE_LIMA'],
+                         o['XALPHAI'], o['XNUI'], o['XALPHAS'], o['XNUS'], o['XALPHAG'], o['XNUG'],
+                         o['XFACTNUC_DEP'], o['XFACTNUC_CON'], o['NPHILLIPS'],
+                         o['LWARM'], o['LACTI'], o['LRAIN'], o['LSEDC'], o['LACTIT'], False,
+                         o['NMOD_CCN'], o['CCCN1'], o['CCCN2'], o['CCCN3'], o['CCCN4'],
+                         o['CCN_HOM'], o['CCN_MODES'], o['HINI_CCN'], o['HTYPE_CCN'],
+                         o['XALPHAC'], o['XNUC'], o['XALPHAR'], o['XNUR'],
+                         o['XFSOLUB_CCN'], o['XACTEMP_CCN'], o['XAERDIFF'], o['XAERHEIGHT'],
+                         o['LSCAV'], o['LAERO_MASS'])
 
     def finalize(self):
         """
@@ -377,12 +328,12 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         state = super().build_init_state(state)
         needed = ['T', 'P', 'rv', 'rc', 'rr', 'ri', 'rs', 'rg',
                   'ccn1ft', 'ccn1at', 'ifn1ft', 'ifn1at']
-        if self._lima_options['LHAIL']:
+        if self._options['LHAIL']:
             needed += ['rh']
         for var in needed:
             if var not in state:
                 raise ValueError(var + " must be in state")
-        if (not self._lima_options['LHAIL']) and 'rh' in state:
+        if (not self._options['LHAIL']) and 'rh' in state:
             state['rg'] += state['rh']
             state['rh'] = state['rh'] * 0.
         for var in ['ni', 'nc', 'nr']:
@@ -401,7 +352,7 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         super().execute(previous_state, timestep, timestep_number)
 
         #Options
-        LSEDI=False
+        LSEDI = False
 
         #Dimensions
         PT = previous_state['T']
@@ -414,7 +365,7 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         elif len(shape) == 2:
             shape = tuple(list(shape) + [1])
         assert len(shape) == 3, "Internal error"
-        KRR = 7 if self._lima_options['LHAIL'] else 6
+        KRR = 7 if self._options['LHAIL'] else 6
         shapeExt = tuple([shape[i] + 2 for i in range(3)])
 
         #Auxiliary fields (not really needed)
@@ -429,7 +380,7 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         Md = 28.9644E-3
         Rd = Avogadro * Boltz / Md
         Cpd = 7. * Rd / 2.
-        P = numpy.ndarray(shape=shapeExt, dtype=numpy.float64, order='F')
+        P = numpy.ndarray(shape=shapeExt, dtype=numpy.float64, order='F') #order is not mandatory, ctypesForFortran knows how to change order
         P[...] = 100000.
         P[1:-1, 1:-1, 1:-1] = previous_state['P'].reshape(shape)
         PEXN = (P / P0) ** (Rd / Cpd)
@@ -444,7 +395,7 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         PRT[1:-1, 1:-1, 1:-1, 3] = previous_state['ri'].reshape(shape)
         PRT[1:-1, 1:-1, 1:-1, 4] = previous_state['rs'].reshape(shape)
         PRT[1:-1, 1:-1, 1:-1, 5] = previous_state['rg'].reshape(shape)
-        if self._lima_options['LHAIL']:
+        if self._options['LHAIL']:
             PRT[1:-1, 1:-1, 1:-1, 6] = previous_state['rh'].reshape(shape)
         PSVT = numpy.ndarray(shape=tuple(list(shapeExt) + [8]), dtype=numpy.float64, order='F')
         PSVT[...] = 0.
@@ -466,16 +417,16 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         PW_NU[...] = 5.
 
         result = self._lima_py(shapeExt[0], shapeExt[1], shapeExt[2], KRR, 8,
-                               self._lima_options['LWARM'], self._lima_options['LACTIT'],
-                               self._lima_options['LSEDC'], self._lima_options['LRAIN'],
-                               self._lima_options['LCOLD'], self._lima_options['LHHONI'], LSEDI,
+                               self._options['LWARM'], self._options['LACTIT'],
+                               self._options['LSEDC'], self._options['LRAIN'],
+                               self._options['LCOLD'], self._options['LHHONI'], LSEDI,
                                timestep, KRR,
                                self._KSPLITR, self._KSPLITG,
                                PDZZ, PRHODJ, PRHODREF, PEXN,
                                P, PW_NU,
                                PRT, PSVT, PTHT,
                                PRS, PSVS, PTHS)
-        (PRS, PSVS, PTHS, PINPRC, PINPRR, PINPRR3D, PEVAP3D, PINPRS, PINPRG, PINPRH) = result
+        (PRS, PSVS, PTHS, PINPRC, PINPRR, PINPRR3D, PEVAP3D, PINPRS, PINPRG, PINPRH, PINDEP) = result
         next_state = {}
         next_state['T'] = (PTHS[1:-1, 1:-1, 1:-1] * timestep * PEXN[1:-1, 1:-1, 1:-1]).reshape(shape_ori)
         next_state['rv'] = PRS[1:-1, 1:-1, 1:-1, 0].reshape(shape_ori) * timestep
@@ -484,7 +435,7 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         next_state['ri'] = PRS[1:-1, 1:-1, 1:-1, 3].reshape(shape_ori) * timestep
         next_state['rs'] = PRS[1:-1, 1:-1, 1:-1, 4].reshape(shape_ori) * timestep
         next_state['rg'] = PRS[1:-1, 1:-1, 1:-1, 5].reshape(shape_ori) * timestep
-        if self._lima_options['LHAIL']:
+        if self._options['LHAIL']:
             next_state['rh'] = PRS[1:-1, 1:-1, 1:-1, 6].reshape(shape_ori) * timestep
         next_state['nc'] = PSVS[1:-1, 1:-1, 1:-1, 0].reshape(shape_ori) * timestep
         next_state['nr'] = PSVS[1:-1, 1:-1, 1:-1, 1].reshape(shape_ori) * timestep
@@ -493,4 +444,5 @@ class pppy_microPhyLima_MNH53(pppy.PPPY):
         next_state['ni'] = PSVS[1:-1, 1:-1, 1:-1, 4].reshape(shape_ori) * timestep
         next_state['ifn1ft'] = PSVS[1:-1, 1:-1, 1:-1, 5].reshape(shape_ori) * timestep
         next_state['ifn1at'] = PSVS[1:-1, 1:-1, 1:-1, 6].reshape(shape_ori) * timestep
+
         return next_state
