@@ -10,6 +10,7 @@ IMPLICIT NONE
 REAL(KIND=8), INTENT(IN), DIMENSION(:, :) :: X
 REAL(KIND=8), INTENT(OUT), DIMENSION(:, :) :: Y
 Y=X+1
+IF(Y(1,1)==-99999999) PRINT*, Y ! To force linking with a compiler specific lib
 END SUBROUTINE PARAM1
 
 SUBROUTINE PARAM2(X, Y)

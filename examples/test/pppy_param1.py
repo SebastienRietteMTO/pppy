@@ -1,4 +1,4 @@
-#!/usr/bin/env python 3
+#!/usr/bin/env python3
 
 # Copyright (c) Météo France (2018-)
 # This software is governed by the CeCILL-C license under French law.
@@ -45,7 +45,7 @@ class pppy_param1(pppy.PPPY):
               "for the parameterization #1")
 
         #Opening of shared lib is done here to avoid loading it at initialization
-        #Because if shared lib is laod at init, all declared schemes will have
+        #Because if shared lib is loaded at init, all declared schemes will have
         #their shared lib loaded simultaneously which can be a source of error.
         #This way, shared lib is loaded in a sub-process (if class instance is used
         #through a PPPYComp instance).
@@ -89,7 +89,7 @@ class pppy_param1(pppy.PPPY):
 
     def build_init_state(self, state):
         """
-        This methods can modify the initial state to include variables
+        This method can modify the initial state to include variables
         needed by the parameterisation
         """
         state = super().build_init_state(state)

@@ -268,7 +268,7 @@ class PPPYComp():
                 f =  h5py.File(filename, 'r')
             self._files[scheme.tag] =  f
         if var in self._files[scheme.tag]:
-            return self._files[scheme.tag][var].value
+            return self._files[scheme.tag][var][...]
         else:
             print(self._files[scheme.tag].items())
             raise ValueError(("This variable (%s) is not present in " + \

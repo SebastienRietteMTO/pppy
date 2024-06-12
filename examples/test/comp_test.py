@@ -36,7 +36,7 @@ param_2 = pppy_param2(dt=60.,
                       solib=solib, iconf=iconf)
 
 #Comparison and plots
-comp = PPPYComp(schemes=[param_1, param_2], #List of parameterization to compare
+comp = PPPYComp(schemes=[param_1, param_2], #List of parameterizations to compare
                 output_dir=output_dir, #directory in which results are stored (hdf5 files)
                 duration=180., #duration of simulation
                 init_state=dict(x=numpy.array([0.], order='F')), #initial state

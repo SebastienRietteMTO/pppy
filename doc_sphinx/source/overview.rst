@@ -33,8 +33,8 @@ To call fortran code from python using ctypesForFortran, we need a shared librar
 linux with object codes compiled using the -fPIC option).
 To insure compatibility between fortran and python, fortran routines directly called by the python code
 must not use "assumed shape" arrays (arrays declared with ':' as dimensions).
-In case, some of the routines contain such elements, one should write a wrapper around this
-routine to declare explicit dimensions.
+In case some of the routines contain such elements, one should write a wrapper around these
+routines to declare explicit dimensions.
 
 For example, if the parameterization is this fortran subroutine:
 
@@ -72,7 +72,7 @@ Parameterization implementation
 A class (inherited from the PPPY class) is written for each of the parameterizations.
 During the instantiation of this class, the time step, the integration method, its
 identification and some possible options are given.
-The class contain a __call__ method which calls the different methods in this order:
+The class contains a __call__ method which calls the different methods in this order:
 setup, build_init_state, execute (called in a loop) then finalize.
 
 The methods that can or must be implemented to represent a parameterization are described below
