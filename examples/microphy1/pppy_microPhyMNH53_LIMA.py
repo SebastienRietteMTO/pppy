@@ -14,7 +14,7 @@ LIMA scheme from the Meso-NH model.
 
 import numpy
 import os
-from pppy import ctypesForFortran
+import ctypesForFortran
 import pppy
 
 class pppy_microPhyMNH53_LIMA(pppy.PPPY):

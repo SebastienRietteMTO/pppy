@@ -98,7 +98,7 @@ import logging
 import glob
 import os
 import shutil
-from pppy import ctypesForFortran
+import ctypesForFortran
 import pppy
 
 class pppy_microPhyWRF(pppy.PPPY):

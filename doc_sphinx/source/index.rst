@@ -14,7 +14,6 @@ Contents:
    Overview <overview>
    Examples <examples>
    PPPY's library <library>
-   ctypesForFortran utility <ctypesForFortran>
 
 Indices and tables
 ------------------

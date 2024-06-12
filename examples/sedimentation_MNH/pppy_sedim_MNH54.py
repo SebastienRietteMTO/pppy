@@ -13,7 +13,7 @@ schemes of Meso-NH model.
 
 import numpy
 import os
-from pppy import ctypesForFortran
+import ctypesForFortran
 import pppy
 
 class pppy_sedim_MNH54(pppy.PPPY):

@@ -82,5 +82,3 @@ STYLES = ['-', ':', '--', '-.', (20.0, 20.0), (30.0, 10.0),
 
 from .pppy import PPPY
 from .pppyComp import PPPYComp
-from . import ctypesForFortran
-

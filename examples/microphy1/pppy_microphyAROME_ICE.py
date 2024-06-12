@@ -13,7 +13,7 @@ scheme of AROME model.
 
 import numpy
 import os
-from pppy import ctypesForFortran
+import ctypesForFortran
 import pppy
 
 class pppy_microphyAROME_ICE(pppy.PPPY):

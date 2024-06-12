@@ -9,8 +9,8 @@ General design
 Each of the parameterizations to compare is defined by a class that must be an extension
 of an abstract class (:ref:`PPPY <PPPY>`) provided by the package. Actual implementation
 of the parameterization can be written in python or must be interfaced to be called from this object.
-If the existing implementation is in fortran, a utility (:ref:`ctypesForFortran <ctypesForFortran>`)
-is provided to help the interfacing task. It is possible to use other interfacing method
+If the existing implementation is in fortran, the ctypesForFortran utility (available on PyPI)
+can be used to help the interfacing task. It is possible to use other interfacing method
 (e.g. f2py) but this is not covered by this documentation. A parameterization is defined
 by a time step and the "time integration method" (see the class documentation).
 
@@ -63,9 +63,8 @@ and the extra source code needed to compile AROME, Meso-NH or WRF to use some of
 parameterizations.
 
 The compilation stage is certainly the most tricky with some traps (big/little endian,
-size of the variables, fortran/C compatibility...). Interfacing examples using the
-ctypesForFortran utility can be found in the :ref:`module <ctypesForFortran>` (and a trivial
-example is in the examples/test/lib directory).
+size of the variables, fortran/C compatibility...). A simple interfacing examples using the
+ctypesForFortran utility can be found in the examples/test/lib directory.
 
 Parameterization implementation
 -------------------------------

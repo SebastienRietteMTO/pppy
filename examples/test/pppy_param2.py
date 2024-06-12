@@ -9,7 +9,7 @@ This module contains the PPPY implementation for a test parameterization
 """
 
 import numpy
-from pppy import ctypesForFortran
+import ctypesForFortran
 import pppy
 
 class pppy_param2(pppy.PPPY):
