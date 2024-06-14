@@ -1,0 +1,14 @@
+To run this examples, you need a compiled PHYEX package.
+These scripts have been written using commit 98b4640 (14 June 2024) of PHYEX.
+
+#PHYEX compilation:
+git clone https://github.com/UMR-CNRM/PHYEX.git
+. PHYEX/tools/env.sh
+cd PHYEX/build/with_fcm
+./make_fcm.sh
+
+#Execution (assuming that '.' is in your PYTHONPATH)
+. PHYEX/tools/env.sh
+cd ...../pppy/examples/pyphyex/
+make all
+make clean

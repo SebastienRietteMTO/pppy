@@ -32,6 +32,7 @@ VAR_NAME = {'rv': "Mixing-ratio of vapor",
             'ng': "Number concentration of graupel",
             'nh': "Number concentration of hail",
             'T': "Temperature",
+            'Theta': "Potential temperature",
             'P': "Pressure",
             't': "Time",
             'Z_half': "Altitude of flux levels",
@@ -42,7 +43,8 @@ VAR_NAME = {'rv': "Mixing-ratio of vapor",
             'ifn1at': "Ice-friendly activated aerosol number (IFN)",
             'u': "U-component of wind",
             'v': "V-component of wind",
-            'w': "Vertical velocity (positive for updraft)"
+            'w': "Vertical velocity (positive for updraft)",
+            "CF": "Cloud fraction",
            }
 
 #Unit for variables
@@ -61,6 +63,7 @@ VAR_UNIT = {'rv': "kg/kg",
             'ng': "#/kg",
             'nh': "#/kg",
             'T': "K",
+            'Theta': 'K',
             'P': "Pa",
             't': 's',
             'Z_half': 'm',
@@ -71,7 +74,8 @@ VAR_UNIT = {'rv': "kg/kg",
             'ifn1at': "#/kg",
             'u': 'm/s',
             'v': 'm/s',
-            'w': 'm/s'
+            'w': 'm/s',
+            'CF': '0-1',
            }
 
 COLORS = ['black', 'red', 'darksalmon', 'gold', 'olivedrab', 'silver',

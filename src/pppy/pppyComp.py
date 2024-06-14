@@ -259,6 +259,8 @@ class PPPYComp():
         :returns: The corresponding array
         """
         filename = os.path.join(self._output_dir, scheme.tag + '.hdf5')
+        if not os.path.exists(filename):
+            raise IOError(f'Filename does not exist: {filename}')
         if scheme.tag not in self._files:
             try:
                 f =  h5py.File(filename, 'r')

@@ -4,81 +4,82 @@
 # This software is governed by the CeCILL-C license under French law.
 # http://www.cecill.info
 
-#Written by S. Riette
-
 """
-This modules is an example of use of PPPY.
-It compares sedimentation schemes of AROME.
+This modules is an example of comparison for the sedimentation schemes
 """
 
-import numpy
 import os
+import json
+import numpy
 import matplotlib.pyplot as plt
 
 from pppy import PPPYComp
-from pppy_sedim_AROME import pppy_sedim_AROME
+from pppy_sedimentation import pppy_sedimentation
 
 #Configuration of comparison
-cwd = os.path.dirname(os.path.abspath(__file__))
-output_dir = cwd
-solib = cwd + "/lib/libpppyAROME.so"
-comp = 1
+output_dir = os.path.dirname(os.path.abspath(__file__))
+comp = 2
 
 #Configuration of schemes
-sedim_STAT = pppy_sedim_AROME(solib=solib,
-                              dt=60., method='step-by-step',
-                              name="Statistical scheme with dt=60.s",
-                              tag="STAT_dt=60.",
-                              hail=False, version='STAT')
-sedim_SPLI = pppy_sedim_AROME(solib=solib,
-                              dt=60., method='step-by-step',
-                              name="Old eulerian scheme with dt=60.s",
-                              tag="SPLI_dt=60.",
-                              hail=False, version='SPLI')
-sedim_SPLN = pppy_sedim_AROME(solib=solib,
-                              dt=60., method='step-by-step',
-                              name="New eulerian scheme with dt=60.s",
-                              tag="SPLN_dt=60.",
-                              hail=False, version='SPLN')
-sedim_SPL2 = pppy_sedim_AROME(solib=solib,
-                              dt=60., method='step-by-step',
-                              name="Eulerian scheme with momentum transport with dt=60.s",
-                              tag="SPL2_dt=60.",
-                              hail=False, version='SPL2')
-sedim_SREF = pppy_sedim_AROME(solib=solib,
-                              dt=60., method='one-step',
-                              name="Reference scheme (eulerian scheme with momentum " +
-                                   "transport run in one-step mode) with dt=60.s",
-                              tag="SREF_dt=60.",
-                              hail=False, version='SPL2')
+sedim_STAT = pppy_sedimentation(dt=60., method='step-by-step',
+                                name="Statistical scheme with dt=60.s",
+                                tag="STAT_dt=60.",
+                                namel=json.dumps({'NAM_PARAM_ICEn': {'LSEDIC':True,
+                                                                     'CSEDIM':'STAT'}}))
+sedim_SPLI = pppy_sedimentation(dt=60., method='step-by-step',
+                                name="Eulerian scheme with dt=60.s",
+                                tag="SPLI_dt=60.",
+                                namel=json.dumps({'NAM_PARAM_ICEn': {'LSEDIC':True,
+                                                                     'CSEDIM':'SPLI',
+                                                                     'XSPLIT_MAXCFL':.8}}))
+sedim_SREF = pppy_sedimentation(dt=60., method='one-step',
+                                name="Reference scheme (eulerian scheme run " + \
+                                     "in one-step mode) with dt=60.s",
+                                tag="SREF_dt=60.",
+                                namel=json.dumps({'NAM_PARAM_ICEn': {'LSEDIC':True,
+                                                                     'CSEDIM':'SPLI',
+                                                                     'XSPLIT_MAXCFL':.8}}))
 
 dt_list = [1., 2., 3., 4., 5., 6., 8., 10., 12., 15., 20., 30., 45., 60.]
-sedim_STAT2 = [pppy_sedim_AROME(solib=solib,
-                                dt=dt, method='step-by-step',
-                                name="Statistical scheme with dt=" + str(dt) + "s",
-                                tag="STAT_dt=" + str(dt),
-                                hail=False, version='STAT')
+sedim_STAT2 = [pppy_sedimentation(dt=dt, method='step-by-step',
+                                  name="Statistical scheme with dt=" + str(dt) + "s",
+                                  tag="STAT_dt=" + str(dt),
+                                  namel=json.dumps({'NAM_PARAM_ICEn': {'LSEDIC':True,
+                                                                       'CSEDIM':'STAT'}}))
                for dt in dt_list]
 
 #Initial state
-op_profile = numpy.zeros((20, )) #vertical profile of hydrometeor
-op_profile[op_profile.shape[0]-3] = 1 #Only one point with not null content
-Z_half = numpy.arange(0, 21 * 50., 50.) #Vertical grid, flux levels
-Z_mass = 0.5 * (Z_half[..., 1:] + Z_half[..., :-1]) #Vertical grid, mass levels
-init_state = dict(P=numpy.ones(op_profile.shape) * 100000.,
-                  T=numpy.ones(op_profile.shape) * 280.,
+NIJT, NKT = 1, 20
+op_profile = numpy.zeros((NKT, NIJT)) #vertical profile of hydrometeor
+op_profile[NKT - 3, :] = 1 #Only one point with not null content
+dzz = numpy.ones((NKT, NIJT)) * 50 #distance between two flux levels
+Z_flux = dzz.cumsum(axis=0) - dzz[0,:]
+Z_mass = numpy.ndarray((NKT, NIJT))
+Z_mass[:-1, :] = .5*(Z_flux[1:, :]+Z_flux[:-1, :])
+Z_mass[-1, :] = 2 * Z_mass[-2, :] - Z_mass[-3, :]
+
+init_state = dict(P=numpy.ones((NKT, NIJT)) * 101325.,
+                  Theta=numpy.ones((NKT, NIJT)) * 280.,
+                  rv=numpy.ones((NKT, NIJT)) * 0.001,
                   rc=op_profile.copy() * 1.E-4,
                   rr=op_profile.copy() * 1.E-4,
                   ri=op_profile.copy() * 1.E-4,
                   rs=op_profile.copy() * 1.E-4,
                   rg=op_profile.copy() * 1.E-4,
-                  Z_half=Z_half, Z_mass=Z_mass)
+                  dzz=dzz,
+                  Z_mass=Z_mass,
+                  sea=numpy.zeros((NIJT, )),
+                  town=numpy.zeros((NIJT, )),
+                  cum_c=numpy.zeros((NIJT, )),
+                  cum_r=numpy.zeros((NIJT, )),
+                  cum_s=numpy.zeros((NIJT, )),
+                  cum_g=numpy.zeros((NIJT, )))
 
 #Comparison and plots
 if comp == 1:
     #Comparison of different schemes
     conf = {
-            'schemes': [sedim_STAT, sedim_SPLI, sedim_SPLN, sedim_SPL2, sedim_SREF],
+            'schemes': [sedim_STAT, sedim_SPLI, sedim_SREF],
             'output_dir': output_dir,
             'duration': 3600.,
             'init_state': init_state,
@@ -95,19 +96,16 @@ if comp == 1:
                          y_var='Z_mass', mfactor=1000., contourlevels=levels)
     plot2 = 'evol', dict(var_names=['rr'], only_param_tag=[sedim_SPLI.tag],
                          y_var='Z_mass', mfactor=1000., contourlevels=levels)
-    plot3 = 'evol', dict(var_names=['rr'], only_param_tag=[sedim_SPLN.tag],
+    plot3 = 'evol', dict(var_names=['rr'], only_param_tag=[sedim_SREF.tag],
                          y_var='Z_mass', mfactor=1000., contourlevels=levels)
-    plot4 = 'evol', dict(var_names=['rr'], only_param_tag=[sedim_SPL2.tag],
-                         y_var='Z_mass', mfactor=1000., contourlevels=levels)
-    plot5 = 'evol', dict(var_names=['rr'], only_param_tag=[sedim_SREF.tag],
-                         y_var='Z_mass', mfactor=1000., contourlevels=levels)
-    fig, plots = comp.plot_multi((5, 1), [plot1, plot2, plot3, plot4, plot5])
+    fig, plots = comp.plot_multi((3, 1), [plot1, plot2, plot3])
     figs.append(fig)
 
-    #cum_rr for the different schemes
-    plot = 'evol', dict(var_names=['cum_rr'])
+    #cum_r for the different schemes
+    plot = 'evol', dict(var_names=['cum_r'])
     fig, plots = comp.plot_multi((1, 1), [plot])
     figs.append(fig)
+
     plt.show()
     for fig in figs:
         plt.close(fig)
@@ -128,8 +126,8 @@ elif comp == 2:
     figs = []
     levels = [1.E-4, 1.E-3, 5.E-3, 1.E-2, 2.E-2, 3.E-2, 4.E-2, 5.E-2, 6.E-2, 7.E-2, 8.E-2, 9.E-2]
 
-    #cum_rr
-    plot = 'comp', dict(var_names=['cum_rr'], only_times=[120., 180., 360., 720., 1080.],
+    #cum_r
+    plot = 'comp', dict(var_names=['cum_r'], only_times=[120., 180., 360., 720., 1080.],
                         x_var=dt_list)
     fig, plots = comp.plot_multi((1, 1), [plot])
     figs.append(fig)
@@ -163,4 +161,3 @@ elif comp == 2:
     plt.show()
     for fig in figs:
         plt.close(fig)
-

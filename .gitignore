@@ -3,3 +3,9 @@
 __pycache__
 examples/test/firstTest/
 doc/build
+examples/pyphyex/CB02_GAUS/
+examples/pyphyex/firstSedimTest/
+examples/pyphyex/firstShallowTest/
+examples/pyphyex/firstTurbTest/
+examples/pyphyex/test_microphy_cold/
+

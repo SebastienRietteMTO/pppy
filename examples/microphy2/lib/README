@@ -1,2 +1,0 @@
-This example uses parameterizations from AROME *AND* WRF.
-Hence, there are two libraries to build. Procedure is described in each of the subdirectories
