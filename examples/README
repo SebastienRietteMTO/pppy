@@ -4,5 +4,4 @@ test: a simple test with a fake parametrisation
 
 pyphyex: examples with the parametrisations from PHYEX (except LIMA)
 
-old: LIMA will soon be included in pyphyex but, in the meantime, an old interfacing code is here.
-     Interfacing with WRF is no longer maintained, but is kept here to facilitate its eventual recovery.
+old_WRF: Interfacing with WRF is no longer maintained, but is kept here to facilitate its eventual recovery.

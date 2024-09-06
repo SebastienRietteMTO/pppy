@@ -3,23 +3,17 @@
 Examples
 ========
 
-Four examples are provided in the ``example`` directory in the package folder.
+Several examples are provided in the ``example`` directory in the package folder.
 
 - ``test``: this example is a very simple example that demonstrates how the package can be used.
-- ``microphy1``: this is an example of use of microphysical parameterizations coming from AROME and Meso-NH
-  models.
-- ``microphy2``: this is an example of use of microphysical parameterizations coming from WRF and Meso-NH
-  models (both model can be downloaded for free)
-- ``sedimentation_AROME``: this is an example of 1D comparisons using sedimentation parameterizations from the
-  AROME model.
-- ``sedimentation_MNH``: this is the same example as sedimentation_AROME but build upon the
-  Meso-NH model.
-
-All these examples involve parameterizations from meteorological models (AROME, WRF and Meso-NH);
-you need a copy of the corresponding source code to be able to run the examples.
+- ``pyphyex``: examples with the parametrisations from PHYEX (https://github.com/UMR-CNRM/PHYEX) involving
+  the ICE3/ICE4 and LIMA microphysics, the saturation adjustement used with these microphysics schemes,
+  the sedimentation schemes used with ICE3/ICE4, the shallow convection and the turbulence schemes.
+  To be used, you need to compile the PHYEX source code.
+- ``old``: old example using the WRF microphysics schemes (no more maintained)
 
 To run one of these examples, you must copy the entire directory somewhere, then go
-reading the README file in the lib directory that describes how to compile and link
+reading the README file in the directory (or the lib subdirectory) that describes how to compile and link
 a shared library. Then, you can execute the comp_*.py script to perform the comparison.
 
 test
@@ -31,22 +25,15 @@ codes provided.
 This is a very simple example but a good starting point before trying to interface a
 real fortran subroutine. It uses the ctypesForFortran utility.
 
-microphy1
+pyphyex
 ---------
-This is an example kept here as a reference on how to interface the AROME microphysical
-parameterization with this tool. To play with microphysical parameterizations, the following
-example is more interesting.
+The README file describes hot to compile the PHYEX package.
+The same shared lib contain the entry points for the different tests:
 
-microphy2
----------
-This example can be run almost everywhere as the two models involved are freely available
-(Meso-Nh and WRF).
-The lib directory provides the source code modifications that must be applied to the
-official release of these models and the compilation instructions.
-Not all the microphysical parameterizations of the WRF model are interfaced but the
-extension to another parameterization must be relatively easy.
-
-sedimentation_AROME and sedimentation_MNH
------------------------------------------
-This are examples of 1D simulations using the AROME or the Meso-NH model.
-They use the sedimentation algorithms available for ICE3/ICE4 microphysical scheme.
+- microphy: example using the ICE3/ICE4 microphysics scheme
+- sedimentation: the sedimentation schemes of ICE3/ICE4
+- ice_adjust: the saturation adjustment used with ICE3/ICE4
+- shallow: the shallow convection scheme
+- turb: the turbulance scheme
+- lima_adjust: the saturation adjustment used with the LIMA scheme
+- lima: the LIMA microphysics scheme
