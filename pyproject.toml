@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pppy"
+dynamic = ["version"]
+dependencies = [
+  "h5py",
+  "matplotlib",
+]
+authors = [
+  { name = "Sébastien Riette", email = "sebastien.riette@meteo.fr" },
+]
+description = "Physical Parameterizations with PYthon"
+readme = "README.md"
+requires-python = ">= 3.10"
+license = {text = "CECILL-C"}
+
+[tool.setuptools.dynamic]
+version = {attr = "pppy.__version__"}
