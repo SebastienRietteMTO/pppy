@@ -113,7 +113,7 @@ class pppy_turb(pppy.PPPY):
         #Add extra levels
         ps = {var:previous_state[var] for var in ['sfth', 'sfrv', 'sfu', 'sfv']} #2D var untouched
         for var in ['Theta', 'rv', 'rc', 'rr', 'ri', 'rs', 'rg',
-                    'u', 'v', 'w', 'tke', 'src', 'flxz_thv_MF',
+                    'u', 'v', 'w', 'tke', 'src', 'flxz_thv_MF', 'flxz_u_MF', 'flxz_v_MF',
                     'Z_flux', 'dzz', 'P']:
             #3D array, copy value in extra levels
             newval = numpy.ndarray((NKT, NIJT))
@@ -128,7 +128,7 @@ class pppy_turb(pppy.PPPY):
 
         #Other values
         HLBCX = HLBCY = numpy.array(['CYCL', 'CYCL'], dtype=('S', 4))
-        KGRADIENTS, KHALO, KSPLIT = 0, 1, 1
+        KGRADIENTSLEO, KGRADIENTSGOG, KHALO, KSPLIT = 0, 0, 1, 1
         OCLOUDMODIFLM = False
         O2D, ONOMIXLG, OFLAT, OCOUPLES = False, False, False, False
         OBLOWSNOW, OIBM, OFLYER, OCOMPUTE_SRC = False, False, True, True
@@ -140,7 +140,8 @@ class pppy_turb(pppy.PPPY):
         PDXX = PDYY = PDZX = PDZY = numpy.ndarray((NKT, NIJT))
         PDIRCOSXW = PDIRCOSYW = PDIRCOSZW = PCOSSLOPE = numpy.ones((NIJT,))
         PSINSLOPE = numpy.zeros((NIJT,))
-        PHGRAD = numpy.ndarray((KGRADIENTS, NKT, NIJT))
+        PHGRADLEO = numpy.ndarray((KGRADIENTSLEO, NKT, NIJT))
+        PHGRADGOG = numpy.ndarray((KGRADIENTSGOG, NKT, NIJT))
         PLENGTHM, PLENGTHH = numpy.zeros((NKT, NIJT)), numpy.zeros((NKT, NIJT))
         MFMOIST = numpy.zeros((NKT, NIJT))
         PCEI = numpy.zeros((NKT, NIJT))
@@ -169,7 +170,7 @@ class pppy_turb(pppy.PPPY):
         PRSVS = PSVM / timestep * rhodj
         PRTKES = ps['tke'] / timestep * rhodj
 
-        result = self._param(NIJT, NKT, 1, NVEXT, KRR, KRRL, KRRI, HLBCX, HLBCY, KGRADIENTS,
+        result = self._param(NIJT, NKT, 1, NVEXT, KRR, KRRL, KRRI, HLBCX, HLBCY, KGRADIENTSLEO, KGRADIENTSGOG,
                              KHALO, KSPLIT, OCLOUDMODIFLM, KSV, KSV_LGBEG, KSV_LGEND,
                              KSV_LIMA_NR, KSV_LIMA_NS, KSV_LIMA_NG, KSV_LIMA_NH,
                              O2D, ONOMIXLG, OFLAT, OCOUPLES, OBLOWSNOW, OIBM, OFLYER,
@@ -177,12 +178,13 @@ class pppy_turb(pppy.PPPY):
                              HTURBLEN_CL, HCLOUD, HELEC, timestep, KUNIT,
                              PDXX, PDYY, ps['dzz'], PDZX, PDZY, ps['Z_flux'],
                              PDIRCOSXW, PDIRCOSYW, PDIRCOSZW, PCOSSLOPE, PSINSLOPE,
-                             rhodj, PTHVREF, PHGRAD, zs, ps['sfth'], ps['sfrv'],
+                             rhodj, PTHVREF, PHGRADLEO, PHGRADGOG, zs, ps['sfth'], ps['sfrv'],
                              PSFSV, ps['sfu'], ps['sfv'], ps['P'], ps['u'], ps['v'], ps['w'],
                              ps['tke'], PSVT, ps['src'], PLENGTHM, PLENGTHH, MFMOIST,
                              PBL_DEPTH, PSBL_DEPTH, PCEI, PCEI_MIN, PCEI_MAX, PCOEF_AMPL_SAT,
                              ps['Theta'], PRT, PRUS, PRVS, PRWS, PRTHLS, PRRS, PRSVS, PRTKES,
-                             ps['flxz_thv_MF'], KBUDGETS, missingOUT=['PEDR', 'PLEM',
+                             ps['flxz_thv_MF'], ps['flxz_u_MF'], ps['flxz_v_MF'],
+                             KBUDGETS, missingOUT=['PEDR', 'PLEM', 'PDPMF',
                              'PTPMF', 'PDRUS_TURB', 'PDRVS_TURB', 'PDRTHLS_TURB', 'PDRRTS_TURB',
                              'PDRSVS_TURB', 'PTR', 'PDISS', 'PIBM_XMUT'])
 

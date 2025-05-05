@@ -108,153 +108,162 @@ class pppy_lima_adjust(pppy.PPPY):
         XCPD = 7. * XRD / 2.
 
         # Dimensions
-        NKT, NJT, NIT = ps['Theta'].shape
+        NKT, NIJT = ps['Theta'].shape
         NSV = 7
         KRR = 6
 
         # Derived arrays
-        PSIGQSAT = self._full_nml['NAM_NEBn']['VSIGQSAT']
+        PSIGQSAT = numpy.ones((NIJT, )) * self._full_nml['NAM_NEBn']['VSIGQSAT']
         HCONDENS = self._full_nml['NAM_NEBn']['CCONDENS']
         HLAMBDA3 = self._full_nml['NAM_NEBn']['CLAMBDA3']
         OSUBG_COND = self._full_nml['NAM_NEBn']['LSUBG_COND']
         OSIGMAS = self._full_nml['NAM_NEBn']['LSIGMAS']
         exner = (ps['P'] / 1.E5) ** (XRD / XCPD)
         PRHODREF = ps['P'] / ((XRD + ps['rv'] * XRV) * ps['Theta'] * exner)
-        PMFCONV = numpy.zeros((NKT, NJT, NIT))
-        PDTHRAD = numpy.zeros((NKT, NJT, NIT))
-        PW_NU = numpy.zeros((NKT, NJT, NIT))
-        PRT = numpy.zeros((KRR, NKT, NJT, NIT))
-        PRT[0, :, :, :] = ps['rv']
-        PRT[1, :, :, :] = ps['rc']
-        PRT[2, :, :, :] = ps['rr']
-        PRT[3, :, :, :] = ps['ri']
-        PRT[4, :, :, :] = ps['rs']
-        PRT[5, :, :, :] = ps['rg']
+        PMFCONV = numpy.zeros((NKT, NIJT))
+        PDTHRAD = numpy.zeros((NKT, NIJT))
+        PW_NU = numpy.zeros((NKT, NIJT))
+        PRT = numpy.zeros((KRR, NKT, NIJT))
+        PRT[0, :, :] = ps['rv']
+        PRT[1, :, :] = ps['rc']
+        PRT[2, :, :] = ps['rr']
+        PRT[3, :, :] = ps['ri']
+        PRT[4, :, :] = ps['rs']
+        PRT[5, :, :] = ps['rg']
         PRS = PRT / timestep
         PTHS = ps['Theta'] / timestep
         rhodj = ps['dzz'] * PRHODREF
-        PSVT = numpy.zeros((NSV, NKT, NJT, NIT))
+        PSVT = numpy.zeros((NSV, NKT, NIJT))
         isv = 0
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_C'] >= 2:
-            PSVT[isv, :, :, :] = ps.get('nc', numpy.zeros((NKT, NJT, NIT)))
+            PSVT[isv, :, :] = ps.get('nc', numpy.zeros((NKT, NIJT)))
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_R'] >= 2:
-            PSVT[isv, :, :, :] = ps.get('nr', numpy.zeros((NKT, NJT, NIT)))
+            PSVT[isv, :, :] = ps.get('nr', numpy.zeros((NKT, NIJT)))
             isv += 1
         NCCN = self._full_nml['NAM_PARAM_LIMA']['NMOD_CCN']
         if NCCN > 0:
             for imodccn in range(NCCN):
-                PSVT[isv, :, :, :] = ps.get(f'ccn{imodccn+1}ft', numpy.zeros((NKT, NJT, NIT)))
+                PSVT[isv, :, :] = ps.get(f'ccn{imodccn+1}ft', numpy.zeros((NKT, NIJT)))
                 isv += 1
             for imodccn in range(NCCN):
-                PSVT[isv, :, :, :] = ps.get(f'ccn{imodccn+1}at', numpy.zeros((NKT, NJT, NIT)))
+                PSVT[isv, :, :] = ps.get(f'ccn{imodccn+1}at', numpy.zeros((NKT, NIJT)))
                 isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['LSCAV'] and \
            self._full_nml['NAM_PARAM_LIMA']['LAERO_MASS']:
             raise NotImplementedError('Scavenging')
-            PSVT[isv, :, :, :] = X
+            PSVT[isv, :, :] = X
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_I'] >= 2:
-            PSVT[isv, :, :, :] = ps.get('ni', numpy.zeros((NKT, NJT, NIT)))
+            PSVT[isv, :, :] = ps.get('ni', numpy.zeros((NKT, NIJT)))
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_S'] >= 2:
-            PSVT[isv, :, :, :] = ps.get('ns', numpy.zeros((NKT, NJT, NIT)))
+            PSVT[isv, :, :] = ps.get('ns', numpy.zeros((NKT, NIJT)))
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_G'] >= 2:
-            PSVT[isv, :, :, :] = ps.get('ng', numpy.zeros((NKT, NJT, NIT)))
+            PSVT[isv, :, :] = ps.get('ng', numpy.zeros((NKT, NIJT)))
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_H'] >= 2:
-            PSVT[isv, :, :, :] = ps.get('nh', numpy.zeros((NKT, NJT, NIT)))
+            PSVT[isv, :, :] = ps.get('nh', numpy.zeros((NKT, NIJT)))
             isv += 1
         NIFN = self._full_nml['NAM_PARAM_LIMA']['NMOD_IFN']
         if NIFN > 0:
             for imodccn in range(NIFN):
-                PSVT[isv, :, :, :] = ps.get(f'ifn{imodccn+1}ft', numpy.zeros((NKT, NJT, NIT)))
+                PSVT[isv, :, :] = ps.get(f'ifn{imodccn+1}ft', numpy.zeros((NKT, NIJT)))
                 isv += 1
             for imodccn in range(NIFN):
-                PSVT[isv, :, :, :] = ps.get(f'ifn{imodccn+1}at', numpy.zeros((NKT, NJT, NIT)))
+                PSVT[isv, :, :] = ps.get(f'ifn{imodccn+1}at', numpy.zeros((NKT, NIJT)))
                 isv += 1
         NIMM = self._full_nml['NAM_PARAM_LIMA']['NMOD_IMM']
         if NIMM > 0:
             raise NotImplementedError('IMM')
             for imodimm in range(NIMM):
-                PSVT[isv, :, :, :] = X
+                PSVT[isv, :, :] = X
                 isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['LHHONI']:
             raise NotImplementedError('Homogeneous freezing of CCN')
-            PSVT[isv, :, :, :] = X
+            PSVT[isv, :, :] = X
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['LSPRO']:
             raise NotImplementedError('Supersaturation')
-            PSVT[isv, :, :, :] = X
+            PSVT[isv, :, :] = X
             isv += 1
         PSVS = PSVT / timestep
 
-        result = self._param(NIT * NJT, NKT, 1, 0, 0, KRR, 1,
+        # Aerosols
+        ODUST, OSALT, OORILAM = False, False, False
+        KCARB, KSOA, KSP = 0, 0, 0
+        PMI = numpy.ndarray((KCARB + KSOA + KSP, NKT, NIJT))
+        PAERO = numpy.ndarray((NSV, NKT, NIJT))
+        PSOLORG = numpy.ndarray((10, NKT, NIJT))
+        HACTCCN = '????'
+
+        result = self._param(NSV, NIJT, NKT, 1, 0, 0, KRR,
                              HCONDENS, HLAMBDA3,
+                             KCARB, KSOA, KSP, ODUST, OSALT, OORILAM,
                              OSUBG_COND, OSIGMAS, timestep, PSIGQSAT,
                              PRHODREF, rhodj, exner, ps['sigs'], True, PMFCONV,
-                             ps['P'], ps['P'], ps['Z_mass'], True, PDTHRAD, PW_NU,
-                             PRT, PRS, PSVT, PSVS, PTHS, True, ps['CFw'], ps['CFi'],
-                             ps['rc_MF'], ps['ri_MF'], ps['CF_MF'])
+                             ps['P'], ps['Z_mass'], True, PDTHRAD, PW_NU,
+                             PRT, PRS, PSVT, PSVS, HACTCCN, PAERO, PSOLORG, PMI,
+                             PTHS, True, ps['rc_MF'], ps['ri_MF'], ps['CF_MF'])
 
         ns = {}
-        PRS, _, PTHS, ns['src'], ns['CFw'], ns['CFi'] = result
+        PRS, _, _, PTHS, ns['src'], ns['CFw'], ns['CFi'] = result
         ns['Theta'] = PTHS * timestep
-        ns['rv'] = PRS[0, :, :, :] * timestep
-        ns['rc'] = PRS[1, :, :, :] * timestep
-        ns['ri'] = PRS[3, :, :, :] * timestep
+        ns['rv'] = PRS[0, :, :] * timestep
+        ns['rc'] = PRS[1, :, :] * timestep
+        ns['ri'] = PRS[3, :, :] * timestep
 
         isv = 0
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_C'] >= 2:
-            ns['nc'] = PSVS[isv, :, :, :] * timestep
+            ns['nc'] = PSVS[isv, :, :] * timestep
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_R'] >= 2:
-            ns['nr'] = PSVS[isv, :, :, :] * timestep
+            ns['nr'] = PSVS[isv, :, :] * timestep
             isv += 1
         if NCCN > 0:
             for imodccn in range(NCCN):
-                ns[f'ccn{imodccn+1}ft'] = PSVS[isv, :, :, :] * timestep
+                ns[f'ccn{imodccn+1}ft'] = PSVS[isv, :, :] * timestep
                 isv += 1
             for imodccn in range(NCCN):
-                ns[f'ccn{imodccn+1}at'] = PSVS[isv, :, :, :] * timestep
+                ns[f'ccn{imodccn+1}at'] = PSVS[isv, :, :] * timestep
                 isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['LSCAV'] and \
            self._full_nml['NAM_PARAM_LIMA']['LAERO_MASS']:
             raise NotImplementedError('Scavenging')
-            X = PSVS[isv, :, :, :] * timestep
+            X = PSVS[isv, :, :] * timestep
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_I'] >= 2:
-            ns['ni'] = PSVS[isv, :, :, :] * timestep
+            ns['ni'] = PSVS[isv, :, :] * timestep
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_S'] >= 2:
-            ns['ns'] = PSVS[isv, :, :, :] * timestep
+            ns['ns'] = PSVS[isv, :, :] * timestep
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_G'] >= 2:
-            ns['ng'] = PSVS[isv, :, :, :] * timestep
+            ns['ng'] = PSVS[isv, :, :] * timestep
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['NMOM_H'] >= 2:
-            ns['nh'] = PSVS[isv, :, :, :] * timestep
+            ns['nh'] = PSVS[isv, :, :] * timestep
             isv += 1
         if NIFN > 0:
             for imodccn in range(NIFN):
-                ns[f'ifn{imodccn+1}ft'] = PSVS[isv, :, :, :] * timestep
+                ns[f'ifn{imodccn+1}ft'] = PSVS[isv, :, :] * timestep
                 isv += 1
             for imodccn in range(NIFN):
-                ns[f'ifn{imodccn+1}at'] = PSVS[isv, :, :, :] * timestep
+                ns[f'ifn{imodccn+1}at'] = PSVS[isv, :, :] * timestep
                 isv += 1
         if NIMM > 0:
             raise NotImplementedError('IMM')
             for imodimm in range(NIMM):
-                X = PSVS[isv, :, :, :] * timestep
+                X = PSVS[isv, :, :] * timestep
                 isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['LHHONI']:
             raise NotImplementedError('Homogeneous freezing of CCN')
-            X = PSVS[isv, :, :, :] * timestep
+            X = PSVS[isv, :, :] * timestep
             isv += 1
         if self._full_nml['NAM_PARAM_LIMA']['LSPRO']:
             raise NotImplementedError('Supersaturation')
-            X = PSVS[isv, :, :, :] * timestep
+            X = PSVS[isv, :, :] * timestep
             isv += 1
 
         return ns

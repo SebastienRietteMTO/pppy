@@ -103,17 +103,20 @@ class pppy_sedimentation(pppy.PPPY):
 
         #Dimensions
         NKT, NIJT = ps['Theta'].shape
+        KRR = 6
 
         #Derived arrays
         exner = (ps['P'] / 1.E5) ** (XRD / XCPD)
         PRHODREF = ps['P'] / ((XRD + ps['rv'] * XRV) * ps['Theta'] * exner)
         T = ps['Theta'] * exner
-        PRVS = ps['rv'] / timestep
-        PRCS = ps['rc'] / timestep
-        PRRS = ps['rr'] / timestep
-        PRIS = ps['ri'] / timestep
-        PRSS = ps['rs'] / timestep
-        PRGS = ps['rg'] / timestep
+        PRT = numpy.ndarray((KRR, NKT, NIJT))
+        PRT[0] = ps['rv']
+        PRT[1] = ps['rc']
+        PRT[2] = ps['rr']
+        PRT[3] = ps['ri']
+        PRT[4] = ps['rs']
+        PRT[5] = ps['rg']
+        PRS = PRT / timestep
         PTHS = ps['Theta'] / timestep
         rhodj = ps['dzz'] * PRHODREF
 
@@ -138,28 +141,27 @@ class pppy_sedimentation(pppy.PPPY):
         PQGS = numpy.zeros((NKT, NIJT))
         PEFIELDW = numpy.zeros((NKT, NIJT))
 
-        result = self._param(NIJT, NKT, 1, 0, False, False, timestep, 6,
+        result = self._param(NIJT, NKT, 1, 0, False, False, timestep, KRR,
                              ps['dzz'], 0., PLVFACT, PLSFACT,
                              PRHODREF, ps['P'], ps['Theta'],
-                             T, rhodj, PTHS, PRVS, PRCS, ps['rc'],
-                             PRRS, ps['rr'], PRIS, ps['ri'],
-                             PRSS, ps['rs'], PRGS, ps['rg'],
-                             PQCT, PQRT, PQIT, PQST, PQGT, PQCS, PQRS, PQIS, PQSS, PQGS,
+                             T, rhodj, PTHS, PRT, PRS,
+                             PQCT, PQRT, PQIT, PQST, PQGT,
+                             PQCS, PQRS, PQIS, PQSS, PQGS,
                              PEFIELDW, 0, PSEA=ps['sea'],
                              PTOWN=ps['town'], missingOUT=['PFPR', 'PINPRH'])
 
         inst = {}
-        (PTHS, PRVS, PRCS, PRRS, PRIS, PRSS, PRGS,
-         inst['c'], inst['r'], inst['s'], inst['g'], _, _, _, _, _) = result
+        (PTHS, PRS, inst['c'], inst['r'], inst['s'],
+         inst['g'], _, _, _, _, _) = result
 
         ns = {}
-        ns['rv'] = PRVS * timestep
-        ns['rc'] = PRCS * timestep
-        ns['rr'] = PRRS * timestep
-        ns['ri'] = PRIS * timestep
-        ns['rs'] = PRSS * timestep
-        ns['rg'] = PRGS * timestep
-        ns['Theta'] = PTHS  * timestep
+        ns['rv'] = PRS[0] * timestep
+        ns['rc'] = PRS[1] * timestep
+        ns['rr'] = PRS[2] * timestep
+        ns['ri'] = PRS[3] * timestep
+        ns['rs'] = PRS[4] * timestep
+        ns['rg'] = PRS[5] * timestep
+        ns['Theta'] = PTHS * timestep
 
         for spe in ['c', 'r', 's', 'g']:
             if self._method == 'step-by-step':

@@ -120,6 +120,7 @@ class pppy_microphy(pppy.PPPY):
         exner = (ps['P'] / 1.E5) ** (XRD / XCPD)
         PRHODREF = ps['P'] / ((XRD + ps['rv'] * XRV) * ps['Theta'] * exner)
         PMFCONV = numpy.zeros((NKT, NIJT))
+        PWEIGHT_MF_CLOUD = numpy.ones((NKT, NIJT))
         PRVS = ps['rv'] / timestep
         PRCS = ps['rc'] / timestep
         PRRS = ps['rr'] / timestep
@@ -143,7 +144,7 @@ class pppy_microphy(pppy.PPPY):
                                      exner, PRHODREF, ps['sigs'], False, PMFCONV,
                                      ps['P'], ps['Z_mass'], exner,
                                      ps['CF_MF'], ps['rc_MF'],
-                                     ps['ri_MF'], ps['rv'],
+                                     ps['ri_MF'], PWEIGHT_MF_CLOUD, ps['rv'],
                                      ps['rc'], PRVS, PRCS,
                                      ps['Theta'], PTHS,
                                      True, ps['rr'], ps['ri'],
@@ -159,22 +160,46 @@ class pppy_microphy(pppy.PPPY):
 
         inst = {}
         if self._full_nml['NAM_PARAM_ICEn']['LRED']:
+            PRT = numpy.ndarray((KRR, NKT, NIJT))
+            PRT[0] = PRVT
+            PRT[1] = PRCT
+            PRT[2] = ps['rr']
+            PRT[3] = PRIT
+            PRT[4] = ps['rs']
+            PRT[5] = ps['rg']
+            if KRR == 7:
+                PRT[6] = ps['rh']
+            PRS = numpy.ndarray((KRR, NKT, NIJT))
+            PRS[0] = PRVS
+            PRS[1] = PRCS
+            PRS[2] = PRRS
+            PRS[3] = PRIS
+            PRS[4] = PRSS
+            PRS[5] = PRGS
+            if KRR == 7:
+                PRS[6] = PRHS
             result = self._paramICE(NIJT, NKT, 1, 0, False, False, 0., timestep, KRR, exner,
                                     ps['dzz'], rhodj, PRHODREF, exner, ps['P'], ps['ni'], CF,
                                     HLC_HRC, HLC_HCF, HLI_HRI, HLI_HCF,
-                                    PTHT, PRVT, PRCT, ps['rr'], PRIT, ps['rs'], ps['rg'],
-                                    PTHS, PRVS, PRCS, PRRS, PRIS, PRSS, PRGS, ps['sigs'], 0,
+                                    PTHT, PRT, PTHS, PRS, ps['sigs'], 0,
                                     PSEA=ps['sea'], PTOWN=ps['town'],
-                                    PRHT=ps['rh'] if KRR == 7 else MISSING, PRHS=PRHS,
                                     missingOUT=['PFPR'] if KRR == 7 else ['PINPRH', 'PFPR'])
-            (ns['ci'], _, _, _, _, PTHS, PRVS, PRCS, PRRS, PRIS, PRSS, PRGS,
-             inst['c'], inst['r'], _, inst['s'], inst['g'], _, PRAINFR) = result[:19]
+            (ns['ci'], _, _, _, _, PTHS, PRS,
+             inst['c'], inst['r'], _, inst['s'], inst['g'], _, PRAINFR) = result[:14]
             if KRR == 7:
-                PRHS, inst['rh'] = result[19:]
+                inst['rh'] = result[14:]
+            PRVS = PRS[0]
+            PRCS = PRS[1]
+            PRRS = PRS[2]
+            PRIS = PRS[3]
+            PRSS = PRS[4]
+            PRGS = PRS[5]
+            if KRR == 7:
+                PRHS = PRS[6]
         else:
             GMICRO = numpy.ndarray((NKT, NIJT), dtype=bool)
             GMICRO[...] = True
-            PICLDFR = PSSIO = PSSIU = PIFR = numpy.ndarray((NKT, NIJT))
+            PICLDFR = PSSIO = PSSIU = PIFR = PCLDROP = PIFNNC = numpy.ndarray((NKT, NIJT))
             PICENU = PKGN_ACON = PKGN_SBGR = numpy.ndarray((NIJT,))
             result = self._paramOLD(NIJT, NKT, 1, 0, self._full_nml['NAM_PARAM_ICEn']['LSEDIC'],
                                     False, False, False, self._full_nml['NAM_PARAM_ICEn']['CSEDIM'],
@@ -184,7 +209,7 @@ class pppy_microphy(pppy.PPPY):
                                     PRHODREF, exner, ps['P'], ps['ni'], ps['CF'],
                                     PICLDFR, PSSIO, PSSIU, PIFR, PTHT, PRVT, PRCT, ps['rr'], PRIT,
                                     ps['rs'], ps['rg'], PTHS, PRVS, PRCS, PRRS, PRIS, PRSS, PRGS,
-                                    ps['sigs'], ps['sea'], ps['town'], 0,
+                                    ps['sigs'], ps['sea'], ps['town'], False, False, PCLDROP, PIFNNC, 0,
                                     PICENU, PKGN_ACON, PKGN_SBGR,
                                     PRHT=ps['rh'] if KRR == 7 else MISSING, PRHS=PRHS,
                                     missingOUT=['PFPR'] if KRR == 7 else ['PINPRH', 'PFPR'])

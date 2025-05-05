@@ -20,7 +20,10 @@ from pppy_lima_adjust import pppy_lima_adjust
 output_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Configuration of schemes
-namel = {'NAM_NEBn': {'CCONDENS': 'CB02', 'LSUBG_COND': True, 'LSIGMAS': True}}  # , 'VSIGQSAT':0.02}}
+namel = {'NAM_NEBn': {'CCONDENS': 'CB02',
+                      'LSUBG_COND': True,
+                      'LSIGMAS': True,
+                      'LCONDBORN': True}}
 lima_adjust = pppy_lima_adjust(dt=60.,  # timestep to use with this parameterization
                                method='step-by-step',  # like a true simulation
                                name="LIMA adjust",  # name to use for plots
@@ -28,38 +31,38 @@ lima_adjust = pppy_lima_adjust(dt=60.,  # timestep to use with this parameteriza
                                namel=json.dumps(namel))
 
 # Initial state
-NIT, NJT, NKT = 1, 1, 1
+NIJT, NKT = 1, 1
 PRV = numpy.linspace(0.003, 0.01, num=NKT)
-PTH = numpy.linspace(280., 295., num=NIT * NJT)
+PTH = numpy.linspace(280., 295., num=NIJT)
 PTH, PRV = numpy.meshgrid(PTH, PRV)
-PRV = PRV.reshape((NKT, NJT, NIT))
-PTH = PTH.reshape((NKT, NJT, NIT))
+PRV = PRV.reshape((NKT, NIJT))
+PTH = PTH.reshape((NKT, NIJT))
 init_state = {'Theta': PTH,
-              'P': numpy.ones((NKT, NJT, NIT)) * 101325.,
+              'P': numpy.ones((NKT, NIJT)) * 101325.,
               'rv': PRV,
-              'rc': numpy.zeros((NKT, NJT, NIT)),
-              'ri': numpy.zeros((NKT, NJT, NIT)),
-              'rr': numpy.zeros((NKT, NJT, NIT)),
-              'rs': numpy.zeros((NKT, NJT, NIT)),
-              'rg': numpy.zeros((NKT, NJT, NIT)),
-              'nc': numpy.ones((NKT, NJT, NIT)) * 3.E8,
-              'nr': numpy.zeros((NKT, NJT, NIT)),
-              'ni': numpy.ones((NKT, NJT, NIT)),
-              'ns': numpy.zeros((NKT, NJT, NIT)),
-              'ng': numpy.zeros((NKT, NJT, NIT)),
-              'ccn1ft': numpy.ones((NKT, NJT, NIT)) * 1.E8,
-              'ccn1at': numpy.ones((NKT, NJT, NIT)) * 3.E8,
-              'ifn1ft': numpy.ones((NKT, NJT, NIT)) * 1000.,
-              'ifn1at': numpy.ones((NKT, NJT, NIT)) * 1000.,
-              'CF_MF': numpy.zeros((NKT, NJT, NIT)),
-              'rc_MF': numpy.zeros((NKT, NJT, NIT)),
-              'ri_MF': numpy.zeros((NKT, NJT, NIT)),
-              'dzz': numpy.ones((NKT, NJT, NIT)),
-              'sigs': numpy.ones((NKT, NJT, NIT)) * 0.0005,
-              'Z_mass': numpy.ones((NKT, NJT, NIT)),
-              'src': numpy.zeros((NKT, NJT, NIT)),
-              'CFw': numpy.zeros((NKT, NJT, NIT)),
-              'CFi': numpy.zeros((NKT, NJT, NIT)),
+              'rc': numpy.zeros((NKT, NIJT)),
+              'ri': numpy.zeros((NKT, NIJT)),
+              'rr': numpy.zeros((NKT, NIJT)),
+              'rs': numpy.zeros((NKT, NIJT)),
+              'rg': numpy.zeros((NKT, NIJT)),
+              'nc': numpy.ones((NKT, NIJT)) * 3.E8,
+              'nr': numpy.zeros((NKT, NIJT)),
+              'ni': numpy.ones((NKT, NIJT)),
+              'ns': numpy.zeros((NKT, NIJT)),
+              'ng': numpy.zeros((NKT, NIJT)),
+              'ccn1ft': numpy.ones((NKT, NIJT)) * 1.E8,
+              'ccn1at': numpy.ones((NKT, NIJT)) * 3.E8,
+              'ifn1ft': numpy.ones((NKT, NIJT)) * 1000.,
+              'ifn1at': numpy.ones((NKT, NIJT)) * 1000.,
+              'CF_MF': numpy.zeros((NKT, NIJT)),
+              'rc_MF': numpy.zeros((NKT, NIJT)),
+              'ri_MF': numpy.zeros((NKT, NIJT)),
+              'dzz': numpy.ones((NKT, NIJT)),
+              'sigs': numpy.ones((NKT, NIJT)) * 0.0005,
+              'Z_mass': numpy.ones((NKT, NIJT)),
+              'src': numpy.zeros((NKT, NIJT)),
+              'CFw': numpy.zeros((NKT, NIJT)),
+              'CFi': numpy.zeros((NKT, NIJT)),
              }
 
 # Comparison and plots

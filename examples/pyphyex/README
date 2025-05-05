@@ -1,5 +1,5 @@
 To run this examples, you need a compiled PHYEX package.
-These scripts have been written using commit de1ca4b (6 September 2024) of PHYEX.
+These scripts have been written using commit 8f32924 (5 May 2025) of PHYEX.
 
 #PHYEX compilation:
 git clone https://github.com/UMR-CNRM/PHYEX.git

@@ -113,6 +113,7 @@ class pppy_ice_adjust(pppy.PPPY):
         #Derived arrays
         #VSIGQSAT = json.loads(self._options['namel'])['NAM_NEBn']['VSIGQSAT']
         PSIGQSAT = numpy.ones((NIJT,)) * self._full_nml['NAM_NEBn']['VSIGQSAT']
+        PWEIGHT_MF_CLOUD = numpy.zeros((NKT, NIJT))
         exner = (ps['P'] / 1.E5) ** (XRD / XCPD)
         PRHODREF = ps['P'] / ((XRD + ps['rv'] * XRV) * ps['Theta'] * exner)
         PMFCONV = numpy.zeros((NKT, NIJT))
@@ -126,7 +127,7 @@ class pppy_ice_adjust(pppy.PPPY):
                              exner, PRHODREF, ps['sigs'], False, PMFCONV,
                              ps['P'], ps['Z_mass'], exner,
                              ps['CF_MF'], ps['rc_MF'],
-                             ps['ri_MF'], ps['rv'],
+                             ps['ri_MF'], PWEIGHT_MF_CLOUD, ps['rv'],
                              ps['rc'], PRVS, PRCS,
                              ps['Theta'], PTHS,
                              True, ps['rr'], ps['ri'],

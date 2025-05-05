@@ -121,6 +121,7 @@ class pppy_shallow(pppy.PPPY):
         PRI_UP = numpy.zeros((NKT, NIJT))
         PU_UP = numpy.zeros((NKT, NIJT))
         PV_UP = numpy.zeros((NKT, NIJT))
+        PTKE_UP = numpy.zeros((NKT, NIJT))
         PTHV_UP = numpy.zeros((NKT, NIJT))
         PW_UP = numpy.zeros((NKT, NIJT))
         PFRAC_UP = numpy.zeros((NKT, NIJT))
@@ -135,16 +136,17 @@ class pppy_shallow(pppy.PPPY):
                              ps['P'], exner, ps['sfth'], ps['sfrv'], ps['Theta'],
                              PRM, ps['u'], ps['v'], ps['tke'], PSVM,
                              PTHL_UP, PRT_UP, PRV_UP, PRC_UP, PRI_UP, PU_UP,
-                             PV_UP, PTHV_UP, PW_UP, PFRAC_UP, PEMF,
+                             PV_UP, PTKE_UP, PTHV_UP, PW_UP, PFRAC_UP, PEMF,
                              self._dx, self._dy, KBUDGETS=0)
 
         ns = {}
-        (PDUDT_MF, PDVDT_MF, PDTHLDT_MF, PDRTDT_MF, PDSVDT_MF,
+        (PDUDT_MF, PDVDT_MF, PDTKEDT_MF, PDTHLDT_MF, PDRTDT_MF, PDSVDT_MF,
          ns['sigs_MF'], ns['rc_MF'], ns['ri_MF'], ns['CF_MF'],
-         PFLXZTHVMF, PFLXZTHMF, PFLXZRMF, PFLXZUMF, PFLXZVMF,
-         PTHL_UP, PRT_UP, PRV_UP, PRC_UP, PRI_UP, PU_UP, PV_UP, PTHV_UP, PW_UP, PFRAC_UP, PEMF,
+         PHLC_HRC, PHLC_HCF, PHLI_HRI, PHLI_HCF, PWEIGHT_MF_CLOUD,
+         PFLXZTHVMF, PFLXZTHMF, PFLXZRMF, PFLXZUMF, PFLXZVMF, PFLXZTKEMF,
+         PTHL_UP, PRT_UP, PRV_UP, PRC_UP, PRI_UP, PU_UP, PV_UP, PTKE_UP, PTHV_UP, PW_UP, PFRAC_UP, PEMF,
          PDETR, PENTR, KKLCL, KKETL, KKCTL) = result
-
+        ns['tke'] = ps['tke'] + PDTKEDT_MF *timestep
         ns['Theta'] = ps['Theta'] + PDTHLDT_MF * timestep
         ns['rv'] = ps['rv'] + PDRTDT_MF * timestep
         ns['u'] = ps['u'] + PDUDT_MF * timestep

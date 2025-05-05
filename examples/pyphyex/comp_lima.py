@@ -32,7 +32,8 @@ lima = {dt: pppy_lima(dt=dt, method='step-by-step',
                       tag="LIMA" + icev + "_dt=" + str(dt),
                       namel=json.dumps({'NAM_NEBn': {'CFRAC_ICE_ADJUST': 'S',
                                                      'VSIGQSAT': 0.02, 'CCONDENS': 'CB02',
-                                                     'LSUBG_COND': True, 'LSIGMAS': True},
+                                                     'LSUBG_COND': True, 'LSIGMAS': True,
+                                                     'LCONDBORN': True},
                                         'NAM_PARAM_LIMA': {'LSEDC': False, 'LSEDI': False, 'LDEPOC': False,
                                                            'NMAXITER': 100,
                                                            'XMRSTEP': 5.E-5, 'XTSTEP_TS': 0.}}))
@@ -47,69 +48,69 @@ scheme_list_dt = {dt: [scheme_names[key][dt] for key in keys] for dt in dtList}
 scheme_list_sch = {k: [v[dt] for dt in dtList] for (k, v) in scheme_names.items()}
 
 # Comparison and plots
-common = dict(dzz=numpy.array([[[1000.]]]),  # Thick layer because sedimentation cannot be deactivated
-              Z_mass=numpy.array([[[0.]]]),
+common = dict(dzz=numpy.array([[1000.]]),  # Thick layer because sedimentation cannot be deactivated
+              Z_mass=numpy.array([[0.]]),
               sea=numpy.array([0.]),
               town=numpy.array([0.]),
-              cum_c=numpy.array([[[0.]]]),
-              cum_r=numpy.array([[[0.]]]),
-              cum_s=numpy.array([[[0.]]]),
-              cum_g=numpy.array([[[0.]]]),
-              src=numpy.array([[[0.]]]),
-              CFw=numpy.array([[[0.]]]),
-              CFi=numpy.array([[[0.]]]),
-              HLC_HRC=numpy.array([[[0.]]]),
-              HLC_HCF=numpy.array([[[0.]]]),
-              HLI_HRI=numpy.array([[[0.]]]),
-              HLI_HCF=numpy.array([[[0.]]]),
-              sigs=numpy.array([[[0.]]]),
-              CF_MF=numpy.array([[[0.]]]),
-              rc_MF=numpy.array([[[0.]]]),
-              ri_MF=numpy.array([[[0.]]]),
+              cum_c=numpy.array([0.]),
+              cum_r=numpy.array([0.]),
+              cum_s=numpy.array([0.]),
+              cum_g=numpy.array([0.]),
+              src=numpy.array([[0.]]),
+              CFw=numpy.array([[0.]]),
+              CFi=numpy.array([[0.]]),
+              HLC_HRC=numpy.array([[0.]]),
+              HLC_HCF=numpy.array([[0.]]),
+              HLI_HRI=numpy.array([[0.]]),
+              HLI_HCF=numpy.array([[0.]]),
+              sigs=numpy.array([[0.]]),
+              CF_MF=numpy.array([[0.]]),
+              rc_MF=numpy.array([[0.]]),
+              ri_MF=numpy.array([[0.]]),
              )
 
-warm_state = dict(P=numpy.array([[[100000.]]]), Theta=numpy.array([[[290.]]]),
-                  rv=numpy.array([[[1.E-2]]]), rc=numpy.array([[[1.E-2]]]),
-                  rr=numpy.array([[[1.E-4]]]), ri=numpy.array([[[0.]]]),
-                  #ric =numpy.array([[[0.]]]), rid=numpy.array([[[0.]]]), rip=numpy.array([[[0.]]]),
-                  rs=numpy.array([[[0.]]]), rg=numpy.array([[[0.]]]),
-                  nc=numpy.array([[[3.E8]]]), nr=numpy.array([[[2000.]]]),
-                  ni=numpy.array([[[0.]]]), ns=numpy.array([[[0.]]]),
-                  ng=numpy.array([[[0.]]]), #nh=numpy.array([[[0.]]]),
-                  #nic=numpy.array([[[0.]]]), nid=numpy.array([[[0.]]]), nip=numpy.array([[[0.]]]),
-                  ccn1ft=numpy.array([[[1.E8]]]), ccn1at=numpy.array([[[1.E8]]]), #CCN
-                  ifn1ft=numpy.array([[[0.]]]), ifn1at=numpy.array([[[0.]]]), #IFN
-                  #u=numpy.array([[[0.]]]), v=numpy.array([[[0.]]]), w=numpy.array([[[0.]]]),
+warm_state = dict(P=numpy.array([[100000.]]), Theta=numpy.array([[290.]]),
+                  rv=numpy.array([[1.E-2]]), rc=numpy.array([[1.E-2]]),
+                  rr=numpy.array([[1.E-4]]), ri=numpy.array([[0.]]),
+                  #ric =numpy.array([[0.]]), rid=numpy.array([[0.]]), rip=numpy.array([[0.]]),
+                  rs=numpy.array([[0.]]), rg=numpy.array([[0.]]),
+                  nc=numpy.array([[3.E8]]), nr=numpy.array([[2000.]]),
+                  ni=numpy.array([[0.]]), ns=numpy.array([[0.]]),
+                  ng=numpy.array([[0.]]), #nh=numpy.array([[0.]]),
+                  #nic=numpy.array([[0.]]), nid=numpy.array([[0.]]), nip=numpy.array([[0.]]),
+                  ccn1ft=numpy.array([[1.E8]]), ccn1at=numpy.array([[1.E8]]), #CCN
+                  ifn1ft=numpy.array([[0.]]), ifn1at=numpy.array([[0.]]), #IFN
+                  #u=numpy.array([[0.]]), v=numpy.array([[0.]]), w=numpy.array([[0.]]),
                   **common)
-cold_state = dict(P=numpy.array([[[100000.]]]), Theta=numpy.array([[[270.]]]),
-                  rv=numpy.array([[[0.007]]]), rc=numpy.array([[[1.E-3]]]),
-                  rr=numpy.array([[[1.E-3]]]), ri=numpy.array([[[9.E-4]]]),
-                  #ric =numpy.array([[[3.E-4]]]), rid=numpy.array([[[3.E-4]]]),
-                  #rip=numpy.array([[[3.E-4]]]),
-                  rs=numpy.array([[[1.E-3]]]), rg=numpy.array([[[1.E-3]]]),
-                  nc=numpy.array([[[3.E8]]]), nr=numpy.array([[[2000.]]]),
-                  ni=numpy.array([[[30000.]]]), ns=numpy.array([[[21000.]]]),
-                  ng=numpy.array([[[8500.]]]), #nh=numpy.array([[[0.]]]),
-                  #nic=numpy.array([[[10000.]]]), nid=numpy.array([[[10000.]]]),
-                  #nip=numpy.array([[[10000.]]]),
-                  ccn1ft=numpy.array([[[1.E8]]]), ccn1at=numpy.array([[[3.E8]]]), #CCN
-                  ifn1ft=numpy.array([[[1000.]]]), ifn1at=numpy.array([[[1000.]]]), #IFN
-                  #u=numpy.array([[[0.]]]), v=numpy.array([[[0.]]]), w=numpy.array([[[0.]]]),
+cold_state = dict(P=numpy.array([[100000.]]), Theta=numpy.array([[270.]]),
+                  rv=numpy.array([[0.007]]), rc=numpy.array([[1.E-3]]),
+                  rr=numpy.array([[1.E-3]]), ri=numpy.array([[9.E-4]]),
+                  #ric =numpy.array([[3.E-4]]), rid=numpy.array([[3.E-4]]),
+                  #rip=numpy.array([[3.E-4]]),
+                  rs=numpy.array([[1.E-3]]), rg=numpy.array([[1.E-3]]),
+                  nc=numpy.array([[3.E8]]), nr=numpy.array([[2000.]]),
+                  ni=numpy.array([[30000.]]), ns=numpy.array([[21000.]]),
+                  ng=numpy.array([[8500.]]), #nh=numpy.array([[0.]]),
+                  #nic=numpy.array([[10000.]]), nid=numpy.array([[10000.]]),
+                  #nip=numpy.array([[10000.]]),
+                  ccn1ft=numpy.array([[1.E8]]), ccn1at=numpy.array([[3.E8]]), #CCN
+                  ifn1ft=numpy.array([[1000.]]), ifn1at=numpy.array([[1000.]]), #IFN
+                  #u=numpy.array([[0.]]), v=numpy.array([[0.]]), w=numpy.array([[0.]]),
                   **common)
-cold2_state = dict(P=numpy.array([[[100000.]]]), Theta=numpy.array([[[270.]]]),
-                   rv=numpy.array([[[0.004]]]), rc=numpy.array([[[1.E-3]]]),
-                   rr=numpy.array([[[1.E-3]]]), ri=numpy.array([[[9.E-4]]]),
-                   #ric =numpy.array([[[3.E-4]]]), rid=numpy.array([[[3.E-4]]]),
-                   #rip=numpy.array([[[3.E-4]]]),
-                   rs=numpy.array([[[1.E-3]]]), rg=numpy.array([[[1.E-3]]]),
-                   nc=numpy.array([[[3.E8]]]), nr=numpy.array([[[2000.]]]),
-                   ni=numpy.array([[[30000.]]]), ns=numpy.array([[[21000.]]]),
-                   ng=numpy.array([[[8500.]]]), #nh=numpy.array([[[0.]]]),
-                   #nic=numpy.array([[[10000.]]]), nid=numpy.array([[[10000.]]]),
-                   #nip=numpy.array([[[10000.]]]),
-                   ccn1ft=numpy.array([[[1.E8]]]), ccn1at=numpy.array([[[3.E8]]]), #CCN
-                   ifn1ft=numpy.array([[[1000.]]]), ifn1at=numpy.array([[[1000.]]]), #IFN
-                   #u=numpy.array([[[0.]]]), v=numpy.array([[[0.]]]), w=numpy.array([[[0.]]]),
+cold2_state = dict(P=numpy.array([[100000.]]), Theta=numpy.array([[270.]]),
+                   rv=numpy.array([[0.004]]), rc=numpy.array([[1.E-3]]),
+                   rr=numpy.array([[1.E-3]]), ri=numpy.array([[9.E-4]]),
+                   #ric =numpy.array([[3.E-4]]), rid=numpy.array([[3.E-4]]),
+                   #rip=numpy.array([[3.E-4]]),
+                   rs=numpy.array([[1.E-3]]), rg=numpy.array([[1.E-3]]),
+                   nc=numpy.array([[3.E8]]), nr=numpy.array([[2000.]]),
+                   ni=numpy.array([[30000.]]), ns=numpy.array([[21000.]]),
+                   ng=numpy.array([[8500.]]), #nh=numpy.array([[0.]]),
+                   #nic=numpy.array([[10000.]]), nid=numpy.array([[10000.]]),
+                   #nip=numpy.array([[10000.]]),
+                   ccn1ft=numpy.array([[1.E8]]), ccn1at=numpy.array([[3.E8]]), #CCN
+                   ifn1ft=numpy.array([[1000.]]), ifn1at=numpy.array([[1000.]]), #IFN
+                   #u=numpy.array([[0.]]), v=numpy.array([[0.]]), w=numpy.array([[0.]]),
                    **common)
 state_name = 'cold'
 state = {'cold': cold_state,
@@ -118,7 +119,7 @@ state = {'cold': cold_state,
 if hail:
     rh = ['rh']
     nh = ['nh']
-    state['rh'] = numpy.array([[[0.]]])
+    state['rh'] = numpy.array([[0.]])
 else:
     rh = []
     nh = []

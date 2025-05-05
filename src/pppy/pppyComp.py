@@ -562,11 +562,11 @@ class PPPYComp():
                     title2 = "Schemes (line styles)"
                 legend1 = ax.legend(handles=handles1, labels=labels1,
                                     title=title1, loc=1, **kwargs_legend)
-                for handle in legend1.legendHandles:
+                for handle in legend1.legend_handles:
                     handle.set_linestyle('-')
                 legend2 = ax.legend(handles=handles2, labels=labels2,
                                     title=title2, loc=2, **kwargs_legend)
-                for handle in legend2.legendHandles:
+                for handle in legend2.legend_handles:
                     handle.set_color('black')
                 ax.add_artist(legend1)
 
@@ -833,11 +833,11 @@ class PPPYComp():
                     title2 = "Times (line styles)"
                 legend1 = ax.legend(handles=handles1, labels=labels1,
                                     title=title1, loc=1, **kwargs_legend)
-                for handle in legend1.legendHandles:
+                for handle in legend1.legend_handles:
                     handle.set_linestyle('-')
                 legend2 = ax.legend(handles=handles2, labels=labels2,
                                     title=title2, loc=2, **kwargs_legend)
-                for handle in legend2.legendHandles:
+                for handle in legend2.legend_handles:
                     handle.set_color('black')
                 ax.add_artist(legend1)
 
