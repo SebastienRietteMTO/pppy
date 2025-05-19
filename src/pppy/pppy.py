@@ -24,6 +24,8 @@ The methods that must (or can) be defined are:
                                   parameterization needs to track a specific
                                   variable that is not in the variables tracked
                                   by the tool.
+    - diag (optional) to compute and save diagnostics. This methods is called
+                      at the end.
     - execute The method receives the state (dictionary holding the different
               variables) and must return the same dictionary containing the
               different variables after a one-time-step advance. If conversions
@@ -208,6 +210,7 @@ class PPPY():
                     old_state = state
                 for key, value in state.items():
                     dset[key][i] = value
+            self.diag(output, dset)
             output.close()
             self.finalize()
         except:
@@ -240,3 +243,10 @@ class PPPY():
         assert isinstance(state, dict), "state must be a dictionay"
 
         return state
+
+    def diag(self, hdf5file, dsets):
+        """
+        Method used to acompute diagnostics to be stored in the output file
+        :param hdf5file: the output file (in hdf5 format)
+        :param dsets: a dictionary containing the existing datasets
+        """

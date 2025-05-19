@@ -9,3 +9,4 @@ examples/pyphyex/firstShallowTest/
 examples/pyphyex/firstTurbTest/
 examples/pyphyex/test_microphy_cold/
 src/pppy.egg-info
+dist/

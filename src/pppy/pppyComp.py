@@ -515,6 +515,15 @@ class PPPYComp():
                         _, Y = series_y[(y_var, scheme.tag)]
                         Y = Y.squeeze()
                     if len(plot_schemes) == 1 and len(var_names) == 1 and enable_contourf:
+                        if ('vmin' in kwargs_contourf or 'vmax' in kwargs_contourf) and \
+                           contourlevels is None:
+                            minmax = [serie.min(), serie.max()]
+                            if 'vmin' in kwargs_contourf:
+                                minmax[0] = kwargs_contourf['vmin']
+                            if 'vmax' in kwargs_contourf:
+                                minmax[1] = kwargs_contourf['vmax']
+                            contourlevels = numpy.linspace(*minmax)
+                        minmax = serie.min(), serie.max()
                         qcs = ax.contourf(X, Y, serie.squeeze(), levels=contourlevels,
                                           **kwargs_contourf)
                         if clabel:

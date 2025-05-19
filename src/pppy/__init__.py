@@ -18,7 +18,15 @@ __contributors__ = []
 
 #List of the known variable names
 #A variable not listed in VAR_NAME will have an empty legend
-VAR_NAME = {'rv': "Mixing-ratio of vapor",
+VAR_NAME = {
+            'qv': "Specific content of vapor",
+            'qc': "Specific content of cloud droptlets",
+            'qr': "Specific content of rain",
+            'qi': "Specific content of cloud ice",
+            'qs': "Specific content of snow",
+            'qg': "Specific content of graupel",
+            'qh': "Specific content of hail",
+            'rv': "Mixing-ratio of vapor",
             'rc': "Mixing-ratio of cloud droptlets",
             'rr': "Mixing-ratio of rain",
             'ri': "Mixing-ratio of cloud ice",
@@ -45,11 +53,23 @@ VAR_NAME = {'rv': "Mixing-ratio of vapor",
             'v': "V-component of wind",
             'w': "Vertical velocity (positive for updraft)",
             "CF": "Cloud fraction",
+            'Ps': 'Surface pressure',
+            'Zs': 'Surface altitude above sea level',
+            'slhf': 'Surface latent heat flux',
+            'sshf': 'Surface sensible heat flux',
            }
 
 #Unit for variables
 #A variable not listed in VAR_UNIT will have an empty unit in legends
-VAR_UNIT = {'rv': "kg/kg",
+VAR_UNIT = {
+            'qv': "kg/kg",
+            'qc': "kg/kg",
+            'qr': "kg/kg",
+            'qi': "kg/kg",
+            'qs': "kg/kg",
+            'qg': "kg/kg",
+            'qh': "kg/kg",
+            'rv': "kg/kg",
             'rc': "kg/kg",
             'rr': "kg/kg",
             'ri': "kg/kg",
@@ -76,6 +96,10 @@ VAR_UNIT = {'rv': "kg/kg",
             'v': 'm/s',
             'w': 'm/s',
             'CF': '0-1',
+            'Ps': 'Pa',
+            'Zs': 'm',
+            'slhf': 'W/m²',
+            'sshf': 'W/m²'
            }
 
 COLORS = ['black', 'red', 'darksalmon', 'gold', 'olivedrab', 'silver',
